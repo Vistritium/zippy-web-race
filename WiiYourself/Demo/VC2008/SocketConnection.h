@@ -15,25 +15,25 @@
 #include <thread>
 #include <mutex>
 #include <queue>
+#include  "Connection.h"
 
-
-class SocketConnection
+class SocketConnection : public Connection
 {
+public:
+	void sendMessage(std::string message) override;
+	std::string receiveMessage() override;
 public:
 	SocketConnection();
 	~SocketConnection();
 
-	void goSocket();
-	void goSocket2();
-
-	void setupSocket();
+	
 	void sendData(char* data);
 
 	void receiver();
 
 	std::string tryReceive();
 private:
-
+	void setupSocket();
 	
 
 	WSADATA wsa;

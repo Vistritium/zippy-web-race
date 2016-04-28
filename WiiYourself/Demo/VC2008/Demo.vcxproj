@@ -182,12 +182,14 @@
   <ItemGroup>
     <ClCompile Include="..\..\wiimote.cpp" />
     <ClCompile Include="..\Demo.cpp" />
+    <ClCompile Include="Connection.cpp" />
     <ClCompile Include="SocketConnection.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\wiimote.h" />
     <ClInclude Include="..\..\wiimote_state.h" />
     <ClInclude Include="..\Demo.h" />
+    <ClInclude Include="Connection.h" />
     <ClInclude Include="SocketConnection.h" />
   </ItemGroup>
   <ItemGroup>

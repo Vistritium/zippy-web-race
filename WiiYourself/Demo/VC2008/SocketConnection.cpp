@@ -11,8 +11,19 @@ void doReceiver2(SocketConnection* socketConnection)
 	socketConnection->receiver();
 }
 
+void SocketConnection::sendMessage(std::string message)
+{
+	sendData(const_cast<char*>(message.c_str()));
+}
+
+std::string SocketConnection::receiveMessage()
+{
+	return tryReceive();
+}
+
 SocketConnection::SocketConnection()
 {
+	setupSocket();
 }
 
 
@@ -20,25 +31,6 @@ SocketConnection::~SocketConnection()
 {
 }
 
-
-void SocketConnection::goSocket2()
-{
-
-	//Receive a reply from the server
-	if ((recv_size = recv(s, server_reply, 2000, 0)) == SOCKET_ERROR)
-	{
-		puts("recv failed");
-	}
-
-	puts("Reply received\n");
-
-	//Add a NULL terminating character to make it a proper string before printing
-	server_reply[recv_size] = '\0';
-	puts(server_reply);
-
-	return;
-
-}
 
 void SocketConnection::setupSocket()
 {

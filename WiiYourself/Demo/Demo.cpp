@@ -120,11 +120,19 @@ void PrintTitle(HANDLE console)
 	CYAN; _tprintf(_T(" ______________________________________________________________________\n\n\n"));
 }
 // ------------------------------------------------------------------------------------
-int _tmain()
+int _tmain(int argc, _TCHAR *argv[])
 {
-	SocketConnection socketConnection;
-	socketConnection.setupSocket();
-	socketConnection.sendData("siemka");
+	Connection* connection = nullptr;
+
+	if (strcmp(argv[0], "1") == 0)
+	{
+		connection = new SocketConnection();
+	} else
+	{
+		connection = new SocketConnection();
+	}
+
+	connection->sendMessage("Message from C++");
 
 /*	std::this_thread::sleep_for(2s);
 
@@ -185,11 +193,12 @@ reconnect:
 #ifdef USE_BEEPS_AND_DELAYS
 		Beep(500, 30); Sleep(1000);
 		puts("trying to receive");
-		std::string maybeSomething = socketConnection.tryReceive();
+		std::string maybeSomething = connection->receiveMessage();
 		if (!maybeSomething.empty())
 		{
+			std::string toSend = maybeSomething + " from c++";
 			std::cout << "MAIN: received" << maybeSomething << std::endl;
-			socketConnection.sendData((char*)maybeSomething.c_str());
+			connection->sendMessage(toSend);
 		}
 #endif
 	}

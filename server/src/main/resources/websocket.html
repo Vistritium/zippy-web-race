@@ -35,7 +35,6 @@
     function onMessage(evt)
     {
         writeToScreen('<span style="color: blue;">RESPONSE: ' + evt.data+'</span>');
-        doSend(evt.data)
     }
 
     function onError(evt)
@@ -59,7 +58,14 @@
 
     window.addEventListener("load", init, false);
 
+    function sendMessage() {
+        var content = document.getElementById('send-content').value
+        doSend(content);
+    }
+    
 </script>
+<input type="text" id="send-content" name="message"><br>
+<button id="send-it" onclick="sendMessage()">SEND MESSAGE</button>
 
 <h2>WebSocket Test</h2>
 
