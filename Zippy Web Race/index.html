@@ -1,0 +1,392 @@
+<!doctype html>
+<head>
+    <script src="game.js"></script>
+</head>
+<body>
+    <canvas id="main" width="640" height="480"></canvas>
+    <div>
+        llldldldl
+    </div>
+
+    <!--<script>
+        
+        // Variable and setup section:
+        
+        
+        // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Basic_usage
+        console.log("hello, world!");
+        var canvas = document.getElementById('main');
+        var ctx = canvas.getContext('2d');
+
+        var x = 0;
+        var y = 0;
+        
+        var carImage = new Image();
+        carImage.src = "carImages/sonicRKart.png";
+        
+        var metalSonicImage = new Image();
+        metalSonicImage.src = "carImages/metalSonicDrift.png";
+
+        var date = Date.now();
+
+        var date2 = Date.now() - date;
+        
+       
+        function sprite (options) {
+                     
+            var that = {};
+                         
+            that.context = options.context;
+            that.width = options.width;
+            that.height = options.height;
+            that.image = options.image;
+            
+            that.frameIndex = 0;
+            that.tickCount = 0;
+            that.ticksPerFrame = options.ticksPerFrame || 0;
+            that.numberOfFrames = options.numberOfFrames || 1;
+            that.loop = options.loop;
+            
+            
+            that.render = function (worldx, worldy) {
+
+                //console.log("that.render successfully called!");
+                // Draw the animation
+                that.context.drawImage(
+                    that.image,
+                    that.frameIndex * that.width,
+                    0,
+                    that.width,
+                    that.height,
+                    worldx,
+                    worldy,
+                    that.width,
+                    that.height);
+                
+                //that.context.fillStyle = "rgba(200, 0, 0, 0.5)";
+                //that.context.fillRect(10, 10, 30, 30);
+            };
+            
+            that.update = function () {
+
+                that.tickCount += 1;
+                    
+                if (that.tickCount > that.ticksPerFrame) {
+                
+                    that.tickCount = 0;
+                    
+                    // If the current frame index is in range
+                    if (that.frameIndex < that.numberOfFrames - 1) {	
+                        // Go to the next frame
+                        that.frameIndex += 1;
+                    }
+                    else if (that.loop)
+                    {
+                        that.frameIndex = 0;
+                    }
+                        
+                }
+            }; 
+
+            return that;
+        }
+        
+        var carSprite = sprite({
+            context: canvas.getContext('2d'),
+            width: 36,
+            height: 32,
+            image: carImage,
+            ticksPerFrame: 30,
+            numberOfFrames: 7,
+            loop: true
+        });
+        
+        var metalSonicSprite = sprite({
+            context: canvas.getContext('2d'),
+            width: 36,
+            height: 32,
+            image: metalSonicImage,
+            ticksPerFrame: 30,
+            numberOfFrames: 7,
+            loop: true
+        });
+        
+        function thing (options) {
+                     
+            var that = {};
+                         
+
+            
+            that.render = function () {
+
+                
+            };
+            
+            that.update = function () {
+
+            }; 
+
+            return that;
+        }
+        
+        function car (options) {
+                     
+            var that = {};
+                         
+            that.sprite = options.sprite;
+            that.x = options.x;
+            that.distance = options.distance;
+            that.speed = options.speed;
+            
+            that.render = function () {
+
+                that.sprite.render(50 + that.x, 100 - that.distance);
+            };
+            
+            that.update = function () {
+
+            }; 
+
+            return that;
+        }
+        
+        function roadPiece (options) {
+                     
+            var that = {};
+                         
+            that.direction = options.direction;
+            that.roadWidth = options.roadWidth;
+            that.roadColor = options.roadColor;
+            that.grassColor = options.grassColor;
+
+            return that;
+        }
+        
+        function road (options) {
+                     
+            var that = {};
+                         
+            that.roadPieces = [];
+            
+            that.init = function () {
+
+                for (i = 0; i < 50; i++) { 
+                    
+                    that.roadPieces[i] = 
+                        roadPiece({
+                            direction: Math.sin(i * 0.4) * 60,
+                            roadWidth: 400,
+                            roadColor: 1,
+                            grassColor: 2
+                        });
+                    
+                    if (i > 20)
+                        that.roadPieces[i].roadWidth = 200;
+                }
+                
+                console.log("Road initialized!");
+            };
+            
+            that.init();
+
+            return that;
+        }
+        
+        var cars = [];
+        cars.push(
+        car({
+            sprite: carSprite,
+            distance: -250,
+            speed: 0,
+            x: 200
+        })
+        );
+        
+        cars.push(
+        car({
+            sprite: metalSonicSprite,
+            distance: -250,
+            speed: 0,
+            x: 240
+        })
+        );
+        
+        var road1 = road({
+        });
+        //road1.init();
+        
+        function camera (options) {
+                     
+            var that = {
+                // distance: options.distance,
+                // roadPieceDistance: options.roadPieceDistance
+            };
+                         
+            that.distance = options.distance;
+            that.roadPieceDistance = options.roadPieceDistance;
+            that.roadPiecesVisible = options.roadPiecesVisible;
+            that.roadPiecesMultiplier = options.roadPiecesMultiplier;
+            that.roadWidthMultiplier = options.roadWidthMultiplier;
+            that.roadPieceDistanceBase = options.roadPieceDistanceBase;
+            
+            that.render = function () {
+                
+                /*
+                for (i = that.roadPiecesVisible - 1; i >= 0; i--)
+                {
+                    
+                }*/
+                
+                var startSegment = Math.floor(that.distance / that.roadPieceDistance);
+                var segmentFirstFragment = ( that.distance % that.roadPieceDistance)  / that.roadPieceDistance;
+                //segmentFirstFragment = 1 - segmentFirstFragment;
+                
+                var currentx = canvas.width / 2;
+                var currentHeight = that.roadPieceDistanceBase * (1 - segmentFirstFragment);
+                var currentWidthMultiplier = 1;
+                var currenty = canvas.height - currentHeight;
+                //currenty += segmentFirstFragment * that.roadPieceDistanceBase;
+                var widthMultiplierDifference = 1 - that.roadWidthMultiplier;
+                
+                for (i = startSegment; i < startSegment + that.roadPiecesVisible; i++)
+                {
+                    console.log("Attempting to read road piece nr :");
+                    console.log("i: " + i);
+                    console.log("currenty: " + currenty);
+                    console.log("segmentFirstFragment: " + segmentFirstFragment);
+                    
+                    if (i == startSegment)
+                    {
+                        
+                    }
+                    else if (i == startSegment + 1)
+                    {
+                        // Init values for second part:
+                        console.log("Initializing piece ns start+1");
+                        // Height of second piece depends on size of the first:
+                        currentHeight = that.roadPieceDistanceBase * (that.roadPiecesMultiplier + widthMultiplierDifference * segmentFirstFragment * 1.5);
+                        currenty -= currentHeight;
+                        segmentFirstFragment = 0;
+                    }
+                    else
+                    {
+                        currentHeight *= that.roadPiecesMultiplier;
+                        currenty -= currentHeight;
+                    } 
+                    
+                    var botX = currentx;
+                    
+                    currentx += road1.roadPieces[i].direction * (1 - segmentFirstFragment);
+                    
+                    var topX = currentx;
+                    
+                    
+                    //currenty = canvas.height - currentHeight;
+                    var botHalfWidth = road1.roadPieces[i].roadWidth * currentWidthMultiplier / 2;
+                    
+                    currentWidthMultiplier *= that.roadWidthMultiplier + widthMultiplierDifference * segmentFirstFragment;
+                    
+                    var topHalfWidth = road1.roadPieces[i].roadWidth * currentWidthMultiplier / 2;
+                    
+                    // Draw grass:
+                    ctx.fillStyle = "rgba(0, 180, 0, 1)";
+                    ctx.fillRect(0, currenty, canvas.width, currentHeight);
+                    
+                    // Draw road:
+                    ctx.fillStyle = "rgba(0, 180, 180, 1)";
+                    ctx.beginPath();
+                    
+                    
+                    ctx.moveTo(botX - botHalfWidth, currenty + currentHeight);
+                    ctx.lineTo(botX + botHalfWidth, currenty + currentHeight);
+                    
+                    ctx.lineTo(topX + topHalfWidth, currenty);
+                    ctx.lineTo(topX - topHalfWidth, currenty);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                }
+
+                for (i = 0; i < cars.length; i++)
+                { 
+                    
+                    cars[i].render();
+                }
+            };
+            
+            that.goForward = function () {
+              
+              that.distance += 0.1;  
+            };
+
+            return that;
+        }
+        
+        var camera1 = camera({
+            distance: 5,
+            roadPieceDistance: 5,
+            roadPiecesVisible: 20,
+            roadPiecesMultiplier: 0.7,
+            roadWidthMultiplier: 0.8,
+            roadPieceDistanceBase: 50
+        });
+        
+        var car1 = car({
+            sprite: carSprite,
+            distance: 0,
+            speed: 0,
+            x: 0
+        });
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        // Interesting code section:
+
+        function draw() {
+            //console.log("General draw function called!");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            carSprite.update();
+            metalSonicSprite.update();
+            //carSprite.render(0, 0);
+            
+            camera1.goForward();
+            camera1.render();
+            
+            /*
+            ctx.fillStyle = "rgba(200, 0, 0, 0.5)";
+            ctx.fillRect(x, y, x + 55, y + 50);
+            x += 2;
+            y += 2;
+            */
+
+            requestAnimationFrame(draw);
+        }
+        
+        window.onload = function() {
+            //ctx.drawImage(carImage,10,10);
+            
+            //carSprite.render();
+        };
+
+        requestAnimationFrame(draw);
+        
+        //carSprite.render();
+        
+        function gameLoop () {
+
+            window.requestAnimationFrame(gameLoop);
+            carSprite.update();
+        }
+
+        // Start the game loop as soon as the sprite sheet is loaded
+        window.addEventListener("load", gameLoop);
+    </script>-->
+</body>
