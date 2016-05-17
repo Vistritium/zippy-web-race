@@ -22,6 +22,9 @@
     <ClCompile Include="Connection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NamedPipeConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Demo.h">
@@ -37,6 +40,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Connection.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NamedPipeConnection.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
