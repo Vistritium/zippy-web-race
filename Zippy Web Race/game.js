@@ -1,6 +1,87 @@
 // Variable and setup section:
 // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Basic_usage
+var keyRightPressed = false;
+var keyLeftPressed = false;
 
+// 0 - keyboard WSAD
+// 1 - keyboard arrows
+// 2 - WiiMote
+// 3 - nunchak
+var inputInfos = [];
+
+for (i = 0; i < 4; i++) {
+    inputInfos[i] = {
+        "A": false,
+        "acc": 0
+    };
+}
+
+window.addEventListener("keydown", function (event){
+    
+    console.log(event);
+    
+    switch (event.keyCode)
+    {
+        case 65:                        // A
+            inputInfos[0].acc = -90;
+            break;
+            
+        case 68:                        // D
+            inputInfos[0].acc = 90;
+            break;
+            
+        case 83:                        // S
+            inputInfos[0].A = true;
+            break;
+            
+            
+        case 39:                        // Right arrow
+            inputInfos[1].acc = 90;
+            break;
+            
+        case 37:                        // Left arrow
+            inputInfos[1].acc = -90;
+            break;
+            
+        case 40:                        // Down arrow
+            inputInfos[1].A = true;
+            break;
+    }
+});
+
+window.addEventListener("keyup", function (event){
+    
+    console.log(event);
+    
+    switch (event.keyCode)
+    {
+        case 65:
+            inputInfos[0].acc = 0;
+            break;
+            
+        case 68:
+            inputInfos[0].acc = 0;
+            break;
+            
+        case 83:
+            inputInfos[0].A = false;
+            break;
+            
+            
+            
+        case 39:                        // Right arrow
+            inputInfos[1].acc = 0;
+            break;
+            
+        case 37:                        // Left arrow
+            inputInfos[1].acc = 0;
+            break;
+            
+        case 40:                        // Down arrow
+            inputInfos[1].A = false;
+            break;
+    }
+});
 
 // Start the game loop as soon as the sprite sheet is loaded
 window.addEventListener("load", function () {
@@ -160,6 +241,7 @@ window.addEventListener("load", function () {
         that.sprite = options.sprite;
         that.x = options.x;
         that.distance = options.distance;
+        that.halfWidth = options.halfWidth;
         //that.spritex = options.spritex;
         //that.spritey = options.spritey;
         //that.spriteWidth = options.spriteWidth;
@@ -186,14 +268,29 @@ window.addEventListener("load", function () {
         that.distance = options.distance;
         that.maxSpeed = options.maxSpeed;
         that.accel = options.accel;
+        that.driftSpeedAtt = options.driftSpeedAtt;
         that.turnAccel = options.turnAccel;
         that.turnMaxSpeed = options.turnMaxSpeed;
         that.speed = options.speed;
+        that.controllerId = options.controllerId;
+        that.carHalfWidth = options.carHalfWidth;
         that.turnSpeed = 0;
+        that.extraTurnSpeed = 0;
+        that.pushTurnSpeed = 0;
+        that.pushTurnAtt = 2;
+        that.pushForce = 50;
+        that.pushSpeedDec = 0.1;
         that.rotationSpeeds = [10, 25, 50];
+        that.inputAccMultiplier = 27 / 90;
+        that.inDrift = false;
+        that.driftExtraSpeed = 5;
+        that.driftExtraRotation = 30;
+        that.targetTurnSpeed = 0;       // when controlled by player, value, that turnSpeed aspires to become
+        that.turnAcc = 1;               // when controlled by player, speed at which turnSpeed changes
         that.rotationBase = 0;          // Dependant on input
         that.rotationAdditional = 0;    // Dependant on other things, like drift or rotating due to oil on road
         that.rotationPerSprite = 30;    // Degrees per sprite index
+        that.halfRotationPerSprite = that.rotationPerSprite / 2;
         
         that.rotate = function (value) {
 
@@ -207,6 +304,7 @@ window.addEventListener("load", function () {
         
         that.render = function (x, y, scale) {
 
+            // Keep both rotations in [-180, 180]:
             while (that.rotationBase > 180)
                 that.rotationBase -= 360;
                 
@@ -219,13 +317,19 @@ window.addEventListener("load", function () {
             while (that.rotationAdditional < -180)
                 that.rotationAdditional += 360;
 
+            // Check, what imageFrame corresponds to rotationBase + rotationAdditional:
             var imageFrame = 0;
+            
+            // If car is rotated left, the we should use second set of images, rotated left:
             if (that.rotationBase + that.rotationAdditional < 0)
                 imageFrame += 7;
             
             var absRotation = Math.abs(that.rotationBase + that.rotationAdditional);
-            absRotation += 15;
             
+            // Since image nr 0 is smaller, consider 15 degree 
+            absRotation += that.halfRotationPerSprite;
+            
+            // Find frame nr corresponding to calculated rotation:
             imageFrame += Math.floor(absRotation / 30);
             
             that.sprite.render(x, y, imageFrame, scale);
@@ -233,28 +337,102 @@ window.addEventListener("load", function () {
         
         that.update = function () {
 
-            // Get Input
-            // React to input
-            var currentSegment = Math.floor(that.distance / road1.roadPieceDistance);   // For now, simulate input accordingly to road
-            that.turnSpeed = road1.roadPieces[currentSegment].direction;
+            var currentSegment = Math.floor(that.distance / road1.roadPieceDistance);
+            
+            // If you have a controller, get input from it:
+            if (that.controllerId >= 0)
+            {
+                // Get desired rotation from controller:
+                that.targetTurnSpeed = inputInfos[that.controllerId].acc * that.inputAccMultiplier;
+                
+                // Gradually change your actual rotation to it:
+                if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAcc)
+                    that.turnSpeed = that.targetTurnSpeed;
+                else if (that.targetTurnSpeed > that.turnSpeed)
+                    that.turnSpeed += that.turnAcc;
+                else
+                    that.turnSpeed -= that.turnAcc;
+                
+                if (inputInfos[that.controllerId].A == true)
+                {
+                    that.inDrift = true;
+                    that.rotationAdditional = that.driftExtraRotation;
+                    that.extraTurnSpeed = that.driftExtraSpeed;
+                    if (that.turnSpeed < 0)
+                    {
+                        that.rotationAdditional *= -1;
+                        that.extraTurnSpeed *= -1;
+                    }
+                    
+                }
+                else
+                {
+                    that.inDrift = false;
+                    that.rotationAdditional = 0;
+                    that.extraTurnSpeed = 0;
+                }
+            }
+            // if not, calculate AI input:
+            else
+            {
+                // For now, simulate input accordingly to road
+                that.turnSpeed = road1.roadPieces[currentSegment].direction;
+            }
             
             // Find rotation corresponding to current turning speed
-            // Find rotations frame corresponding to current ro
             var i = 0;
-            while (i < that.rotationSpeeds.length && Math.abs(that.turnSpeed) > that.rotationSpeeds[i] )
-                i++
+            while (i < that.rotationSpeeds.length && Math.abs(that.turnSpeed) > that.rotationSpeeds[i])
+                i++;
                 
             that.rotationBase = i * that.rotationPerSprite;
             
             if (that.turnSpeed < 0)
                 that.rotationBase *= -1;
                 
+            // Update speed and acceleration:
             that.speed += that.accel;
+            if (that.inDrift == true)
+                that.speed -= that.driftSpeedAtt;
+                
             if (that.speed > that.maxSpeed)
                 that.speed = that.maxSpeed;
+            if (that.speed < 0)
+                that.speed = 0;
+                
+            // Update push speed:
+            if (Math.abs(that.pushTurnSpeed) <= that.pushTurnAtt)
+                that.pushTurnSpeed = 0;
+            else if (that.pushTurnSpeed > 0)
+                that.pushTurnSpeed -= that.pushTurnAtt;
+            else
+                that.pushTurnSpeed += that.pushTurnAtt;
             
+            // Update x according to turnSpeed and current road piece:
+            that.x += (that.turnSpeed + that.extraTurnSpeed + that.pushTurnSpeed
+                    - road1.roadPieces[currentSegment].direction) / road1.roadPieceDistance * that.speed;
+                
             that.distance += that.speed;
+            currentSegment = Math.floor(that.distance / road1.roadPieceDistance);
+            
+            // Check, if you didn't hit any object:
+            for (var i = 0; i < road1.roadPieces[currentSegment].things.length; i++)
+            {
+                var theThing = road1.roadPieces[currentSegment].things[i];
+                var theDistance = theThing.distance + currentSegment * road1.roadPieceDistance;
+                // If there has been collision:
+                if (theDistance < that.distance && theDistance > that.distance - that.speed &&
+                    Math.abs(theThing.x - that.x) < theThing.halfWidth + that.carHalfWidth)
+                {
+                    // Get hit by theThing:
+                    that.pushTurnSpeed = that.pushForce;
+                    if (that.x < theThing.x)
+                        that.pushTurnSpeed *= -1;
+                        
+                    that.speed -= that.pushSpeedDec;
+                }
+            }
             //that.rotate(1);
+            
         }; 
 
         return that;
@@ -282,7 +460,7 @@ window.addEventListener("load", function () {
         
         that.init = function () {
 
-            for (i = 0; i < 200; i++) { 
+            for (i = 0; i < 400; i++) { 
                 
                 that.roadPieces[i] = 
                     roadPiece({
@@ -295,13 +473,14 @@ window.addEventListener("load", function () {
                     });
                 
                 if (i > 100)
-                    that.roadPieces[i].roadWidth = 250;
+                    that.roadPieces[i].roadWidth = 300;
                     
                 if (i % 2 == 0)
                 {
                     that.roadPieces[i].things[0] = thing({
                         sprite: lampSprite,
                         x: that.roadPieces[i].roadWidth * 0.5 + 10,
+                        halfWidth: 5,
                         //x: 0,
                         distance: 0
                     });
@@ -326,9 +505,12 @@ window.addEventListener("load", function () {
         distance: 10,
         maxSpeed: 0.7,
         accel: 0.001,
+        driftSpeedAtt: 0.002,
         turnAccel: 5,
         turnMaxSpeed: 5,
-        speed: 0.1
+        speed: 0.1,
+        controllerId: 0,
+        carHalfWidth: 30
     })
     );
     
@@ -339,9 +521,12 @@ window.addEventListener("load", function () {
         distance: 10,
         maxSpeed: 0.6,
         accel: 0.0011,
+        driftSpeedAtt: 0.002,
         turnAccel: 5,
         turnMaxSpeed: 5,
-        speed: 0.1
+        speed: 0.1,
+        controllerId: 1,
+        carHalfWidth: 30
     })
     );
     
@@ -353,9 +538,12 @@ window.addEventListener("load", function () {
         distance: 100,
         maxSpeed: 0.5,
         accel: 0.1,
+        driftSpeedAtt: 0.2,
         turnAccel: 5,
         turnMaxSpeed: 5,
-        speed: 0.4
+        speed: 0.4,
+        controllerId: -1,
+        carHalfWidth: 30
     })
     );
     
@@ -389,14 +577,9 @@ window.addEventListener("load", function () {
         that.roadPieceDistanceBase = options.roadPieceDistanceBase;
         that.targetObj = options.targetObj;
         that.distanceToObj = options.distanceToObj;
+        that.startY = options.startY;
         
         that.render = function () {
-            
-            /*
-            for (i = that.roadPiecesVisible - 1; i >= 0; i--)
-            {
-                
-            }*/
             
             // Number of first visible segment from that camera's viewpoint:
             var startSegment = Math.floor(that.distance / road1.roadPieceDistance);
@@ -408,7 +591,7 @@ window.addEventListener("load", function () {
             var currentx = canvas.width / 2;
             var currentHeight = that.roadPieceDistanceBase * (1 - segmentFirstFragment);
             var currentWidthMultiplier = 1;
-            var currenty = canvas.height - currentHeight;
+            var currenty = that.startY - currentHeight; 
             //currenty += segmentFirstFragment * that.roadPieceDistanceBase;
             var widthMultiplierDifference = 1 - that.roadWidthMultiplier;
             
@@ -508,15 +691,18 @@ window.addEventListener("load", function () {
                 var targetPiece = road1.roadPieces[startSegment + i];
                 for (j = 0; j < targetPiece.things.length; j++)
                 {
-                    targetPiece.things[j].render(roadPoints[i].x + (targetPiece.things[j].x * roadPoints[i].multiplier),
-                                                 roadPoints[i].y,
-                                                 roadPoints[i].multiplier);
+                    if (roadPoints[i].y < that.startY)
+                    {
+                        targetPiece.things[j].render(roadPoints[i].x + (targetPiece.things[j].x * roadPoints[i].multiplier),
+                                                    roadPoints[i].y,
+                                                    roadPoints[i].multiplier);
+                    }
                 }
             }
             
             // Finally, draw cars:
             for (i = 0; i < cars.length; i++)
-            { 
+            {
                 var carSegment = Math.floor(cars[i].distance / road1.roadPieceDistance);
                 var carSegmentPart = ( cars[i].distance % road1.roadPieceDistance ) / road1.roadPieceDistance;
                 var carRelativeSegment = Math.floor( (carSegment) - startSegment);
@@ -526,7 +712,7 @@ window.addEventListener("load", function () {
                     var carX = roadPoints[carRelativeSegment].x;
                     var carY = roadPoints[carRelativeSegment].y;
                     var carMultiplier = roadPoints[carRelativeSegment].multiplier;
-                               
+                    
                     if (carRelativeSegment < roadPoints.length - 1)
                     {
                         carX = ( roadPoints[carRelativeSegment].x * (1 - carSegmentPart) +
@@ -540,9 +726,10 @@ window.addEventListener("load", function () {
                         carMultiplier = ( roadPoints[carRelativeSegment].multiplier * (1 - carSegmentPart) +
                                 roadPoints[carRelativeSegment + 1].multiplier * carSegmentPart );
                     }
-                                          
+                    
                     //cars[i].render(cars[i].x + 50, cars[i].distance + 100, 1);
-                    cars[i].render(carX, carY, carMultiplier);
+                    if (carY < that.startY)
+                        cars[i].render(carX, carY, carMultiplier);
                 }
                 
                 
@@ -563,14 +750,30 @@ window.addEventListener("load", function () {
         return that;
     }
     
-    var camera1 = camera({
+    var cameras = [];
+    
+    cameras[0] =
+    camera({
         distance: 10,
         roadPiecesVisible: 15,
         roadPiecesMultiplier: 0.7,
         roadWidthMultiplier: 0.8,
         roadPieceDistanceBase: 50,
         targetObj: cars[0],
-        distanceToObj: 10
+        distanceToObj: 10,
+        startY: canvas.height
+    });
+    
+    cameras[1] = 
+    camera({
+        distance: 10,
+        roadPiecesVisible: 15,
+        roadPiecesMultiplier: 0.7,
+        roadWidthMultiplier: 0.8,
+        roadPieceDistanceBase: 50,
+        targetObj: cars[1],
+        distanceToObj: 10,
+        startY: canvas.height / 2
     });
     
     var car1 = car({
@@ -599,14 +802,18 @@ window.addEventListener("load", function () {
         //metalSonicSprite.update();
         //carSprite.render(0, 0);
         
-        for (i = 0; i < cars.length; i++) {
+        for (var i = 0; i < cars.length; i++) {
              
              cars[i].update();
         }
         
         //camera1.goForward();
-        camera1.update();
-        camera1.render();
+        for (i = 0; i < 2; i++)
+        {
+            cameras[i].update();
+            cameras[i].render();
+        }
+        
         
         /*
         ctx.fillStyle = "rgba(200, 0, 0, 0.5)";
