@@ -9,8 +9,11 @@
 //  demo.cpp  (tab = 4 spaces)
 #include "Demo.h"
 #include "..\wiimote.h"
-#include <mmsystem.h>	// for timeGetTime
+
 #include "VC2008/SocketConnection.h"
+#include "VC2008/NamedPipeConnection.h"
+
+#include <mmsystem.h>	// for timeGetTime
 #include <thread>
 #include <chrono>
 
@@ -124,15 +127,15 @@ int _tmain(int argc, _TCHAR *argv[])
 {
 	Connection* connection = nullptr;
 
-	if (strcmp(argv[0], "1") == 0)
-	{
+	if (strcmp(argv[0], "1") == 0) {
 		connection = new SocketConnection();
-	} else
-	{
-		connection = new SocketConnection();
+	} else {
+		connection = new NamedPipeConnection();
 	}
 
 	connection->sendMessage("Message from C++");
+
+	system("pause");
 
 /*	std::this_thread::sleep_for(2s);
 
@@ -194,10 +197,9 @@ reconnect:
 		Beep(500, 30); Sleep(1000);
 		puts("trying to receive");
 		std::string maybeSomething = connection->receiveMessage();
-		if (!maybeSomething.empty())
-		{
-			std::string toSend = maybeSomething + " from c++";
-			std::cout << "MAIN: received" << maybeSomething << std::endl;
+		if (!maybeSomething.empty()) {
+			std::string toSend = "From C++: " + maybeSomething;
+			std::cout << "MAIN: received " << maybeSomething << std::endl;
 			connection->sendMessage(toSend);
 		}
 #endif

@@ -1,0 +1,16 @@
+{
+  "name": "server-js",
+  "version": "1.0.0",
+  "description": "JS version of zippy web outrun server",
+  "main": "server.js",
+  "dependencies": {
+    "node-ipc": "^7.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
