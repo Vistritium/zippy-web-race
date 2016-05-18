@@ -92,6 +92,16 @@ window.addEventListener("load", function () {
     var x = 0;
     var y = 0;
     
+    var placeNames = [];
+    placeNames[0] = "1st: ";
+    placeNames[1] = "2nd: ";
+    placeNames[2] = "3rd: ";
+    placeNames[3] = "4th: ";
+    placeNames[4] = "5th: ";
+    placeNames[5] = "6th: ";
+    placeNames[6] = "7th: ";
+    placeNames[7] = "8th: ";
+    
     var carImage = new Image();
     carImage.src = "carImages/sonicRKart.png";
     
@@ -178,7 +188,7 @@ window.addEventListener("load", function () {
         return that;
     }
     
-    var carSprite = sprite({
+    var sonicSprite = sprite({
         context: canvas.getContext('2d'),
         width: 36,
         height: 32,
@@ -234,6 +244,34 @@ window.addEventListener("load", function () {
         loop: false
     });
     
+    var car1Sprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 96,
+        height: 32,
+        image: cityImage,
+        imageStartX: 256,
+        imageStartY: 224,
+        pivotx: 0.5,
+        pivoty: 1,
+        ticksPerFrame: 30,
+        numberOfFrames: 1,
+        loop: false
+    });
+    
+    var house1Sprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 128,
+        height: 64,
+        image: cityImage,
+        imageStartX: 288,
+        imageStartY: 320,
+        pivotx: 0.5,
+        pivoty: 1,
+        ticksPerFrame: 30,
+        numberOfFrames: 1,
+        loop: false
+    });
+    
     function thing (options) {
                     
         var that = {};
@@ -267,6 +305,7 @@ window.addEventListener("load", function () {
         that.x = options.x;
         that.distance = options.distance;
         that.maxSpeed = options.maxSpeed;
+        that.minSpeed = options.minSpeed;
         that.accel = options.accel;
         that.driftSpeedAtt = options.driftSpeedAtt;
         that.turnAccel = options.turnAccel;
@@ -274,6 +313,7 @@ window.addEventListener("load", function () {
         that.speed = options.speed;
         that.controllerId = options.controllerId;
         that.carHalfWidth = options.carHalfWidth;
+        that.name = options.name;
         that.turnSpeed = 0;
         that.extraTurnSpeed = 0;
         that.pushTurnSpeed = 0;
@@ -283,7 +323,7 @@ window.addEventListener("load", function () {
         that.rotationSpeeds = [10, 25, 50];
         that.inputAccMultiplier = 27 / 90;
         that.inDrift = false;
-        that.driftExtraSpeed = 5;
+        that.driftExtraSpeed = 10;
         that.driftExtraRotation = 30;
         that.targetTurnSpeed = 0;       // when controlled by player, value, that turnSpeed aspires to become
         that.turnAcc = 1;               // when controlled by player, speed at which turnSpeed changes
@@ -291,6 +331,11 @@ window.addEventListener("load", function () {
         that.rotationAdditional = 0;    // Dependant on other things, like drift or rotating due to oil on road
         that.rotationPerSprite = 30;    // Degrees per sprite index
         that.halfRotationPerSprite = that.rotationPerSprite / 2;
+        
+        that.targetX = 0;               // used to control cars with AI
+        that.targetXChangeSpeed = 1;    //
+        that.targetXSize = 10;          // acceptance radius used by AI
+        that.preferedTargetX = options.preferedTargetX;
         
         that.rotate = function (value) {
 
@@ -344,39 +389,63 @@ window.addEventListener("load", function () {
             {
                 // Get desired rotation from controller:
                 that.targetTurnSpeed = inputInfos[that.controllerId].acc * that.inputAccMultiplier;
-                
-                // Gradually change your actual rotation to it:
-                if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAcc)
-                    that.turnSpeed = that.targetTurnSpeed;
-                else if (that.targetTurnSpeed > that.turnSpeed)
-                    that.turnSpeed += that.turnAcc;
-                else
-                    that.turnSpeed -= that.turnAcc;
-                
                 if (inputInfos[that.controllerId].A == true)
-                {
                     that.inDrift = true;
-                    that.rotationAdditional = that.driftExtraRotation;
-                    that.extraTurnSpeed = that.driftExtraSpeed;
-                    if (that.turnSpeed < 0)
-                    {
-                        that.rotationAdditional *= -1;
-                        that.extraTurnSpeed *= -1;
-                    }
-                    
-                }
                 else
-                {
                     that.inDrift = false;
-                    that.rotationAdditional = 0;
-                    that.extraTurnSpeed = 0;
-                }
+                
             }
             // if not, calculate AI input:
             else
             {
                 // For now, simulate input accordingly to road
-                that.turnSpeed = road1.roadPieces[currentSegment].direction;
+                if (road1.roadPieces[currentSegment].preferedXMatters == false)
+                    that.targetX = that.preferedTargetX;
+                else
+                    that.targetX = road1.roadPieces[currentSegment].preferedX;
+                
+                if (Math.abs(that.x - that.targetX) < that.targetXSize)
+                    that.targetTurnSpeed = road1.roadPieces[currentSegment].direction;
+                else if (that.targetX < that.x)
+                    that.targetTurnSpeed = -90 * that.inputAccMultiplier;
+                else
+                    that.targetTurnSpeed = 90 * that.inputAccMultiplier;
+                
+                // If road turns too rapidly and you're about to get thrown out, it's time to drift like a boss: 
+                if ( that.inputAccMultiplier * 90 < Math.abs(road1.roadPieces[currentSegment].direction) &&
+                    (
+                    (road1.roadPieces[currentSegment].direction > 0 && that.x < road1.roadPieces[currentSegment].roadWidth * -0.25) ||
+                    (road1.roadPieces[currentSegment].direction < 0 && that.x > road1.roadPieces[currentSegment].roadWidth * 0.25) 
+                    )
+                    )
+                    that.inDrift = true;
+                else
+                    that.inDrift = false;
+            }
+            
+            // Gradually change your actual rotation to it:
+            if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAcc)
+                that.turnSpeed = that.targetTurnSpeed;
+            else if (that.targetTurnSpeed > that.turnSpeed)
+                that.turnSpeed += that.turnAcc;
+            else
+                that.turnSpeed -= that.turnAcc;
+            
+            if (that.inDrift == true)
+            {
+                that.rotationAdditional = that.driftExtraRotation;
+                that.extraTurnSpeed = that.driftExtraSpeed;
+                if (that.turnSpeed < 0)
+                {
+                    that.rotationAdditional *= -1;
+                    that.extraTurnSpeed *= -1;
+                }
+                
+            }
+            else
+            {
+                that.rotationAdditional = 0;
+                that.extraTurnSpeed = 0;
             }
             
             // Find rotation corresponding to current turning speed
@@ -391,13 +460,14 @@ window.addEventListener("load", function () {
                 
             // Update speed and acceleration:
             that.speed += that.accel;
-            if (that.inDrift == true)
+            if (that.inDrift == true ||
+                that.x > road1.roadPieces[currentSegment].roadWidth * 0.5 || that.x < road1.roadPieces[currentSegment].roadWidth * -0.5)
                 that.speed -= that.driftSpeedAtt;
                 
             if (that.speed > that.maxSpeed)
                 that.speed = that.maxSpeed;
-            if (that.speed < 0)
-                that.speed = 0;
+            if (that.speed < that.minSpeed)
+                that.speed = that.minSpeed;
                 
             // Update push speed:
             if (Math.abs(that.pushTurnSpeed) <= that.pushTurnAtt)
@@ -412,6 +482,8 @@ window.addEventListener("load", function () {
                     - road1.roadPieces[currentSegment].direction) / road1.roadPieceDistance * that.speed;
                 
             that.distance += that.speed;
+            if (that.distance > road1.roadCarLength)
+                that.distance = road1.roadCarLength;
             currentSegment = Math.floor(that.distance / road1.roadPieceDistance);
             
             // Check, if you didn't hit any object:
@@ -447,6 +519,9 @@ window.addEventListener("load", function () {
         that.roadColor = options.roadColor;
         that.grassColor = options.grassColor;
         that.things = options.things;
+        that.preferedXMatters = options.preferedXMatters;   // Used by AI to know, where car should be now
+        that.preferedX = options.preferedX;
+        that.avoidX = options.avoidX;                       // Used by AI to know, which parts of road to avoid
 
         return that;
     }
@@ -457,9 +532,179 @@ window.addEventListener("load", function () {
                         
         that.roadPieceDistance = options.roadPieceDistance;
         that.roadPieces = [];
+        that.roadCarLength = 0;         // Distance in in-game units (NOT number of negments) that can be traveled by cars
+        that.roadCameraLength = 0;
         
         that.init = function () {
+            
+            var pieceNr = 0;
+            var i = 0;
+            
+            // Keep generating until you reach at least set number of road pieces:
+            while (pieceNr < 400)
+            {
+                switch ( Math.floor( Math.random() * 4) )
+                {
+                case 0:     // Make straight road:
+                    for (i = 0; i < 10; i++)
+                    {
+                        that.roadPieces[pieceNr + i] = 
+                            roadPiece({
+                                direction: 0,
+                                roadWidth: 500,
+                                roadColor: 1,
+                                grassColor: 2,
+                                things: [],
+                                preferedXMatters: false,
+                                preferedX: 0
+                            });
+                    }
+                    
+                    break;
+                    
+                case 1:     // Make nice turn:
+                    var direction =  Math.floor( Math.random() * 2) * 2 - 1;
+                    
+                    for (i = 0; i < 20; i++)
+                    {
+                        that.roadPieces[pieceNr + i] = 
+                            roadPiece({
+                                direction: Math.sin(i * Math.PI * 0.05) * 26 * direction,
+                                roadWidth: 500,
+                                roadColor: 1,
+                                grassColor: 2,
+                                things: [],
+                                preferedXMatters: true,
+                                preferedX: Math.sin((i + 5) * Math.PI * 0.05) * 150 * direction
+                            });
+                    }
+                    
+                    break;
+                    
+                case 2:     // Make tight turn:
+                    var direction =  Math.floor( Math.random() * 2) * 2 - 1;
+                    
+                    if (pieceNr > 5)
+                    {
+                        for (i = 1; i <= 5; i++)
+                        {
+                            that.roadPieces[pieceNr - i].preferedXMatters = true;
+                            that.roadPieces[pieceNr - i].preferedX = 150 * direction;
+                        }
+                    }
+                
+                    for (i = 0; i < 30; i++)
+                    {
+                        that.roadPieces[pieceNr + i] = 
+                            roadPiece({
+                                direction: Math.sin(i * Math.PI * 0.033) * 50 * direction,
+                                roadWidth: 500,
+                                roadColor: 1,
+                                grassColor: 2,
+                                things: [],
+                                preferedXMatters: true,
+                                preferedX: 150 * direction
+                            });
+                    }
+                    
+                    break;
+                    
+                case 3:     // Place random stuff on road:
+                    // Randomize a safe passage and save it in road pieces:
+                    var rightX = Math.random() * 400 - 200;
+                    var safeHalfWidth = 100;
+                
+                    for (i = 0; i < 20; i++)
+                    {
+                        that.roadPieces[pieceNr + i] = 
+                            roadPiece({
+                                direction: 0,
+                                roadWidth: 500,
+                                roadColor: 1,
+                                grassColor: 2,
+                                things: [],
+                                preferedXMatters: true,
+                                preferedX: rightX
+                            });
+                    }
+                    
+                    // Generate set number of blockades:
+                    for (var j = 0; j < 5; j++)
+                    {
+                        // Randomize new x value from not-safe space:
+                        var objX = Math.random() * (500 - (safeHalfWidth * 2) ) - 250;
+                        if (objX > rightX - safeHalfWidth && objX < rightX + safeHalfWidth)
+                            objX += safeHalfWidth * 2;
+                        
+                        that.roadPieces[pieceNr + i - j - 1].things[0] = 
+                            thing({
+                                sprite: car1Sprite,
+                                x: objX,
+                                halfWidth: 30,
+                                //x: 0,
+                                distance: 0
+                            });
+                    }
+                    
+                    break;
+                }
+                
+                // Move forward by number of generated road pieces:
+                pieceNr += i;
+            }
+            
+            // Generate finish line:
+            that.roadCameraLength = pieceNr * that.roadPieceDistance - 1;
+            for (i = 0; i < 40; i++)
+            {
+                that.roadPieces[pieceNr + i] = 
+                            roadPiece({
+                                direction: 0,
+                                roadWidth: 500,
+                                roadColor: 1,
+                                grassColor: 2,
+                                things: [],
+                                preferedXMatters: false,
+                                preferedX: 0
+                            });
+            }
+            
+            // After this, place enviro objects next to the road:
+            for (i = 0; i < that.roadPieces.length; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    that.roadPieces[i].things[that.roadPieces[i].things.length] = thing({
+                        sprite: lampSprite,
+                        x: that.roadPieces[i].roadWidth * 0.5 + 10,
+                        halfWidth: 5,
+                        //x: 0,
+                        distance: 0
+                    });
+                    if (i % 4 == 0)
+                        that.roadPieces[i].things[0].x *= -1;
+                }
+            }
+            
+            i = 0;
+            while (i < that.roadPieces.length)
+            {
+                that.roadPieces[i].things[that.roadPieces[i].things.length] = thing({
+                    sprite: house1Sprite,
+                    x: that.roadPieces[i].roadWidth * 0.5 + 100,
+                    halfWidth: 50,
+                    //x: 0,
+                    distance: 0
+                });
+                if (Math.floor(Math.random() * 2) == 0)
+                    that.roadPieces[i].things[that.roadPieces[i].things.length - 1].x *= -1;
+                
+                i += Math.floor(Math.random() * 20);
+            }
+            
+            that.roadCarLength = (that.roadPieces.length - 1) * that.roadPieceDistance;
 
+            /*
             for (i = 0; i < 400; i++) { 
                 
                 that.roadPieces[i] = 
@@ -468,12 +713,17 @@ window.addEventListener("load", function () {
                         roadWidth: 500,
                         roadColor: 1,
                         grassColor: 2,
-                        things: []
+                        things: [],
+                        preferedXMatters: true,
+                        preferedX: Math.sin((i + 5) * 0.1) * 150
                         
                     });
                 
                 if (i > 100)
+                {
                     that.roadPieces[i].roadWidth = 300;
+                    that.roadPieces[i].preferedX *= 0.5;
+                }
                     
                 if (i % 2 == 0)
                 {
@@ -487,7 +737,7 @@ window.addEventListener("load", function () {
                     if (i % 4 == 0)
                         that.roadPieces[i].things[0].x *= -1;
                 }
-            }
+            }*/
             
             console.log("Road initialized!");
         };
@@ -500,17 +750,19 @@ window.addEventListener("load", function () {
     var cars = [];
     cars.push(
     car({
-        sprite: carSprite,
+        sprite: sonicSprite,
         x: 0,
-        distance: 10,
+        distance: 11,
         maxSpeed: 0.7,
+        minSpeed: 0.1,
         accel: 0.001,
         driftSpeedAtt: 0.002,
         turnAccel: 5,
         turnMaxSpeed: 5,
         speed: 0.1,
         controllerId: 0,
-        carHalfWidth: 30
+        carHalfWidth: 30,
+        name: "Sonic"
     })
     );
     
@@ -519,14 +771,17 @@ window.addEventListener("load", function () {
         sprite: metalSonicSprite,
         x: 50,
         distance: 10,
-        maxSpeed: 0.6,
-        accel: 0.0011,
+        maxSpeed: 0.69,
+        minSpeed: 0.1,
+        accel: 0.001,
         driftSpeedAtt: 0.002,
         turnAccel: 5,
         turnMaxSpeed: 5,
         speed: 0.1,
-        controllerId: 1,
-        carHalfWidth: 30
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: 50,
+        name: "Metal Sonic"
     })
     );
     
@@ -535,15 +790,18 @@ window.addEventListener("load", function () {
     car({
         sprite: silverSprite,
         x: -50,
-        distance: 100,
-        maxSpeed: 0.5,
-        accel: 0.1,
-        driftSpeedAtt: 0.2,
+        distance: 12,
+        maxSpeed: 0.66,
+        minSpeed: 0.1,
+        accel: 0.001,
+        driftSpeedAtt: 0.002,
         turnAccel: 5,
         turnMaxSpeed: 5,
-        speed: 0.4,
+        speed: 0.1,
         controllerId: -1,
-        carHalfWidth: 30
+        carHalfWidth: 30,
+        preferedTargetX: -50,
+        name: "Silver"
     })
     );
     
@@ -740,6 +998,8 @@ window.addEventListener("load", function () {
         that.update = function () {
             
             that.distance = that.targetObj.distance - that.distanceToObj;
+            if (that.distance > road1.roadCameraLength)
+                that.distance = road1.roadCameraLength;
         };
         
         that.goForward = function () {
@@ -777,7 +1037,7 @@ window.addEventListener("load", function () {
     });
     
     var car1 = car({
-        sprite: carSprite,
+        sprite: sonicSprite,
         distance: 0,
         speed: 0,
         x: 0
@@ -798,21 +1058,44 @@ window.addEventListener("load", function () {
         //console.log("General draw function called!");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        //carSprite.update();
-        //metalSonicSprite.update();
-        //carSprite.render(0, 0);
+        // Sort cars, so that they are listed from 1st place to last:
+        for (var i = 0; i < cars.length; i++)
+        {
+            for (var j = 0; j < cars.length - i - 1; j++)
+            {
+                if (cars[j].distance < cars[j + 1].distance)
+                {
+                    var tempCar = cars[j];
+                    cars[j] = cars[j + 1];
+                    cars[j + 1] = tempCar;
+                }
+            }
+        }
         
+        // Update game logic:
         for (var i = 0; i < cars.length; i++) {
              
              cars[i].update();
         }
         
-        //camera1.goForward();
-        for (i = 0; i < 2; i++)
+        // Update camera's logic and then draw their views:
+        for (var i = 0; i < 2; i++)
         {
             cameras[i].update();
             cameras[i].render();
         }
+        
+        var textY = 15;
+        
+        // Finally, draw HUD:
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        for (var i = 0; i < cars.length; i++)
+        {
+            ctx.fillText(placeNames[i] + cars[i].name, 5, textY);
+            textY += 30;
+        }
+        //ctx.fillTex("Pootis", 10, 10);
         
         
         /*
@@ -827,12 +1110,12 @@ window.addEventListener("load", function () {
 
     requestAnimationFrame(draw);
     
-    //carSprite.render();
+    //sonicSprite.render();
     
     function gameLoop () {
 
         window.requestAnimationFrame(gameLoop);
-        carSprite.update();
+        sonicSprite.update();
     }
 
     //gameLoop();
