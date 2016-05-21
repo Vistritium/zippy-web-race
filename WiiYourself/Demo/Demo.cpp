@@ -126,6 +126,10 @@ void PrintTitle(HANDLE console)
 int _tmain(int argc, _TCHAR *argv[])
 {
 	Connection* connection = nullptr;
+	std::string jsonMessage = "{";
+	// for sprintf_s:
+#define SPRINTF_BUFFER_SIZE 2048
+	char sprintf_buffer[SPRINTF_BUFFER_SIZE];
 
 	if (strcmp(argv[0], "1") == 0) {
 		connection = new SocketConnection();
@@ -268,6 +272,7 @@ reconnect:
 	// display the wiimote state data until 'Home' is pressed:
 	while (!remote.Button.Home())// && !GetAsyncKeyState(VK_ESCAPE))
 	{
+		jsonMessage = "{ ";
 		// IMPORTANT: the wiimote state needs to be refreshed each pass
 		while (remote.RefreshState() == NO_CHANGE)
 			Sleep(1); // // don't hog the CPU if nothing changed
@@ -385,6 +390,7 @@ reconnect:
 
 		// Buttons:
 		CYAN; _tprintf(_T("  Buttons: ")); WHITE; _tprintf(_T("["));
+		jsonMessage += "\"Buttons\": [";
 		for (unsigned bit = 0; bit<16; bit++)
 		{
 			WORD mask = (WORD)(1 << bit);
@@ -399,12 +405,18 @@ reconnect:
 			}
 			if (pressed) {
 				BRIGHT_WHITE; _tprintf(_T("%s"), button_name);
-			}
-			else {
+				if (jsonMessage[jsonMessage.length() - 1] != '[') {
+					jsonMessage += ", ";
+				}
+				jsonMessage += '"';
+				jsonMessage += button_name;
+				jsonMessage += '"';
+			} else {
 				WHITE; _tprintf(_T("%*s"), _tcslen(button_name), _T(""));
 			}
 		}
 		WHITE; _tprintf(_T("]\n"));
+		jsonMessage += "], ";
 
 		// Acceleration:
 		CYAN; _tprintf(_T("    Accel:"));
@@ -416,6 +428,7 @@ reconnect:
 
 		// Orientation estimate (shown red if last valid update is aging):
 		CYAN; _tprintf(_T("   Orient:"));
+		jsonMessage += "\"Orient\": { ";
 		remote.IsBalanceBoard() ? RED : WHITE;
 		_tprintf(_T("  UpdateAge %3u  "), remote.Acceleration.Orientation.UpdateAge);
 
@@ -431,6 +444,12 @@ reconnect:
 			remote.Acceleration.Orientation.X,
 			remote.Acceleration.Orientation.Y,
 			remote.Acceleration.Orientation.Z);
+
+		sprintf_s(sprintf_buffer, SPRINTF_BUFFER_SIZE,
+			_T("\"Pitch\": %4d, \"Roll\": %4d }, "),
+			(int)remote.Acceleration.Orientation.Pitch,
+			(int)remote.Acceleration.Orientation.Roll);
+		jsonMessage += sprintf_buffer;
 
 		// IR:
 		CYAN; _tprintf(_T("       IR:"));
@@ -488,6 +507,7 @@ reconnect:
 
 		// -- Extensions --:
 		CYAN; _tprintf(_T("__________\n  Extnsn.:  "));
+		jsonMessage += "\"Extnsn\": { ";
 		switch (remote.ExtensionType)
 		{
 		case wiimote_state::NONE:
@@ -511,13 +531,27 @@ reconnect:
 		case wiimote_state::NUNCHUK_NEW:
 		{
 			BRIGHT_WHITE; _tprintf(_T("Nunchuk   "));
+			jsonMessage += "\"Nunchuk\": { ";
 
 			// Buttons:
 			CYAN; _tprintf(_T("Buttons: ")); WHITE; _tprintf(_T("["));
+			jsonMessage += "\"Buttons\": [";
 			BRIGHT_WHITE; _tprintf(remote.Nunchuk.C ? _T("C") : _T(" "));
 			CYAN; _tprintf(_T("|"));
 			BRIGHT_WHITE; _tprintf(remote.Nunchuk.Z ? _T("Z") : _T(" "));
 			WHITE; _tprintf(_T("]   "));
+
+			if (remote.Nunchuk.C) {
+				jsonMessage += "\"C\"";
+				if (remote.Nunchuk.Z) {
+					jsonMessage += ", \"Z\"";
+				}
+			}
+			else if (remote.Nunchuk.Z) {
+				jsonMessage += "\"Z\"";
+			}
+			jsonMessage += "], ";
+
 			// Joystick:
 			CYAN; _tprintf(_T("Joystick:  "));
 			WHITE; _tprintf(_T("X %+2.3f  Y %+2.3f\n"),
@@ -532,6 +566,7 @@ reconnect:
 
 			// Orientation estimate (shown red if last valid update is aging):
 			CYAN; _tprintf(_T("   Orient:"));
+			jsonMessage += "\"Orient\": { ";
 			WHITE; _tprintf(_T("  UpdateAge %3u  "),
 				remote.Nunchuk.Acceleration.Orientation.UpdateAge);
 			//  show if the last orientation update is aging
@@ -544,6 +579,11 @@ reconnect:
 				remote.Nunchuk.Acceleration.Orientation.X,
 				remote.Nunchuk.Acceleration.Orientation.Y,
 				remote.Nunchuk.Acceleration.Orientation.Z);
+			sprintf_s(sprintf_buffer, SPRINTF_BUFFER_SIZE, "\"Pitch\": %4d, \"Roll\": %4d }",
+				(int)remote.Nunchuk.Acceleration.Orientation.Pitch,
+				(int)remote.Nunchuk.Acceleration.Orientation.Roll);
+			jsonMessage += sprintf_buffer;
+			jsonMessage += " }";
 		}
 		break;
 
@@ -645,6 +685,10 @@ reconnect:
 		}
 		break;
 		}
+		jsonMessage += " }"; // Extnsn
+		jsonMessage += " }"; // whole json
+		connection->sendMessage(jsonMessage);
+		_tprintf("%s\n", jsonMessage.c_str());
 	}
 
 
