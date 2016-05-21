@@ -4,7 +4,8 @@
   "description": "JS version of zippy web outrun server",
   "main": "server.js",
   "dependencies": {
-    "node-ipc": "^7.0.0"
+    "node-ipc": "^7.0.0",
+    "websocket": "^1.0.0"
   },
   "devDependencies": {},
   "scripts": {

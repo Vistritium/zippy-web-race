@@ -8,6 +8,7 @@ var keyLeftPressed = false;
 // 2 - WiiMote
 // 3 - nunchak
 var inputInfos = [];
+var INPUT_WIIMOTE_ID = 2;
 
 for (i = 0; i < 4; i++) {
     inputInfos[i] = {
@@ -15,6 +16,33 @@ for (i = 0; i < 4; i++) {
         "acc": 0
     };
 }
+
+var websocket = new WebSocket("ws://localhost:8184", "echo-protocol");
+
+websocket.onopen = function(event) {
+	console.log("opened websocket");
+	websocket.send('initiated'); // important to send this
+};
+/*
+ * Dummy implementation that lets you control the car with wiimote cross button (left, right, up, down)
+ */
+websocket.onmessage = function(event) {
+	var input = JSON.parse(event.data.slice(0, -1));
+	
+	if (input.Buttons.indexOf('Left') !== -1) {
+		inputInfos[INPUT_WIIMOTE_ID].acc = -90;
+	} else if (input.Buttons.indexOf('Right') !== -1) {
+		inputInfos[INPUT_WIIMOTE_ID].acc = 90;
+	} else {
+		inputInfos[INPUT_WIIMOTE_ID].acc = 0;
+	}
+	
+	if (input.Buttons.indexOf('Down') !== -1) {
+		inputInfos[INPUT_WIIMOTE_ID].A = true;
+	} else {
+		inputInfos[INPUT_WIIMOTE_ID].A = false;
+	}
+};
 
 window.addEventListener("keydown", function (event){
     
