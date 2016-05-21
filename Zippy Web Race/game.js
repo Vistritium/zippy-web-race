@@ -8,7 +8,6 @@ var keyLeftPressed = false;
 // 2 - WiiMote
 // 3 - nunchak
 var inputInfos = [];
-var INPUT_WIIMOTE_ID = 2;
 
 for (i = 0; i < 4; i++) {
     inputInfos[i] = {
@@ -17,103 +16,128 @@ for (i = 0; i < 4; i++) {
     };
 }
 
-var websocket = new WebSocket("ws://localhost:8184", "echo-protocol");
 
-websocket.onopen = function(event) {
-	console.log("opened websocket");
-	websocket.send('initiated'); // important to send this
-};
-/*
- * Dummy implementation that lets you control the car with wiimote cross button (left, right, up, down)
- */
-websocket.onmessage = function(event) {
-	var input = JSON.parse(event.data.slice(0, -1));
-	
-	if (input.Buttons.indexOf('Left') !== -1) {
-		inputInfos[INPUT_WIIMOTE_ID].acc = -90;
-	} else if (input.Buttons.indexOf('Right') !== -1) {
-		inputInfos[INPUT_WIIMOTE_ID].acc = 90;
-	} else {
-		inputInfos[INPUT_WIIMOTE_ID].acc = 0;
-	}
-	
-	if (input.Buttons.indexOf('Down') !== -1) {
-		inputInfos[INPUT_WIIMOTE_ID].A = true;
-	} else {
-		inputInfos[INPUT_WIIMOTE_ID].A = false;
-	}
-};
 
-window.addEventListener("keydown", function (event){
+var listenFunction;
+
+function cloneParams(toArr, index, fromObj) {
     
-    console.log(event);
+    toArr[index] = Object.assign({}, fromObj);
+    toArr[index].rand = Math.random();
+    console.log(fromObj, toArr[index]);
+    /*
     
-    switch (event.keyCode)
-    {
-        case 65:                        // A
-            inputInfos[0].acc = -90;
-            break;
-            
-        case 68:                        // D
-            inputInfos[0].acc = 90;
-            break;
-            
-        case 83:                        // S
-            inputInfos[0].A = true;
-            break;
-            
-            
-        case 39:                        // Right arrow
-            inputInfos[1].acc = 90;
-            break;
-            
-        case 37:                        // Left arrow
-            inputInfos[1].acc = -90;
-            break;
-            
-        case 40:                        // Down arrow
-            inputInfos[1].A = true;
-            break;
+    for (var key in fromObj) {
+        if (fromObj.hasOwnProperty(key))
+            toObj[key] = fromObj[key];
     }
-});
+    */
+}
 
-window.addEventListener("keyup", function (event){
-    
-    console.log(event);
-    
-    switch (event.keyCode)
-    {
-        case 65:
-            inputInfos[0].acc = 0;
-            break;
-            
-        case 68:
-            inputInfos[0].acc = 0;
-            break;
-            
-        case 83:
-            inputInfos[0].A = false;
-            break;
-            
-            
-            
-        case 39:                        // Right arrow
-            inputInfos[1].acc = 0;
-            break;
-            
-        case 37:                        // Left arrow
-            inputInfos[1].acc = 0;
-            break;
-            
-        case 40:                        // Down arrow
-            inputInfos[1].A = false;
-            break;
-    }
-});
+
 
 // Start the game loop as soon as the sprite sheet is loaded
-window.addEventListener("load", function () {
+listenFunction = window.addEventListener("load", function () {
     console.log("hello, world!");
+    
+    
+
+    window.addEventListener("keydown", function (event){
+        
+        console.log(event);
+        
+        if (inMenu == true)
+        {
+            switch (event.keyCode)
+            {
+                case 39:                        // Right arrow
+                    onMenuRight();
+                    break;
+                    
+                case 37:                        // Left arrow
+                    onMenuLeft();
+                    break;
+                    
+                case 40:                        // Down arrow
+                    onMenuDown();
+                    break;
+                    
+                case 38:                        // Up arrow
+                    onMenuUp();
+                    break;
+                    
+                case 13:                        // Enter
+                    onMenuAccept();
+                    break;
+            }
+        }
+        else
+        {
+            switch (event.keyCode)
+            {
+                case 65:                        // A
+                    inputInfos[0].acc = -90;
+                    break;
+                    
+                case 68:                        // D
+                    inputInfos[0].acc = 90;
+                    break;
+                    
+                case 83:                        // S
+                    inputInfos[0].A = true;
+                    break;
+                    
+                    
+                case 39:                        // Right arrow
+                    inputInfos[1].acc = 90;
+                    break;
+                    
+                case 37:                        // Left arrow
+                    inputInfos[1].acc = -90;
+                    break;
+                    
+                case 40:                        // Down arrow
+                    inputInfos[1].A = true;
+                    break;
+            }
+        }
+    });
+
+    window.addEventListener("keyup", function (event){
+        
+        console.log(event);
+        
+        switch (event.keyCode)
+        {
+            case 65:
+                inputInfos[0].acc = 0;
+                break;
+                
+            case 68:
+                inputInfos[0].acc = 0;
+                break;
+                
+            case 83:
+                inputInfos[0].A = false;
+                break;
+                
+                
+                
+            case 39:                        // Right arrow
+                inputInfos[1].acc = 0;
+                break;
+                
+            case 37:                        // Left arrow
+                inputInfos[1].acc = 0;
+                break;
+                
+            case 40:                        // Down arrow
+                inputInfos[1].A = false;
+                break;
+        }
+    });
+    
+    
     var canvas = document.getElementById('main');
     var ctx = canvas.getContext('2d');
 
@@ -130,14 +154,44 @@ window.addEventListener("load", function () {
     placeNames[6] = "7th: ";
     placeNames[7] = "8th: ";
     
+    var menuCursorX = 0;
+    var menuCursorY = 0;
+    var menuCursorXMax = 4;
+    var menuCursorXMin = 0;
+    var menuCursorYMax = 2;
+    var menuCursorYMin = 0;
+    var inMenu = true;
+
+    // Array of cars taking part in race:
+    var cars = [];
+
+    // Array of car numbers taken by players:
+    var menuCars = [0, 1, 2, 3, 4];
+    var menuControllers = [0, -1, -1, -1, -1];
+
+    // Var used in menu, serving as database to copy car properties:
+    var carBluprints = []; 
+
+    var controllerNames = ["WSAD", "Arrows", "Wiimote", "Nunchuck"];
+    controllerNames[-1] = "AI";
+    
     var carImage = new Image();
     carImage.src = "carImages/sonicRKart.png";
     
     var metalSonicImage = new Image();
     metalSonicImage.src = "carImages/metalSonicDrift.png";
     
+    var metalKnucklesImage = new Image();
+    metalKnucklesImage.src = "carImages/metalKnuckles.png";
+    
     var silverImage = new Image();
     silverImage.src = "carImages/silver.png";
+    
+    var shadowImage = new Image();
+    shadowImage.src = "carImages/shadow.png";
+    
+    var tailsImage = new Image();
+    tailsImage.src = "carImages/tails.png";
     
     var cityImage = new Image();
     cityImage.src = "enviroImages/cityEscape.png";
@@ -230,11 +284,53 @@ window.addEventListener("load", function () {
         loop: true
     });
     
+    var tailsSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: tailsImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
+    var shadowSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: shadowImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
     var metalSonicSprite = sprite({
         context: canvas.getContext('2d'),
         width: 36,
         height: 32,
         image: metalSonicImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
+    var metalKnucklesSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: metalKnucklesImage,
         imageStartX: 0,
         imageStartY: 0,
         pivotx: 0.5,
@@ -342,6 +438,14 @@ window.addEventListener("load", function () {
         that.controllerId = options.controllerId;
         that.carHalfWidth = options.carHalfWidth;
         that.name = options.name;
+        
+        // Values, that will be displayed in menu to inform player about driver's stats:
+        that.infoSpeed = options.infoSpeed;
+        that.infoAcc = options.infoAcc;
+        that.infoHandling = options.infoHandling;
+        that.infoDrift = options.infoDrift;
+        that.infoWeight = options.infoWeight;
+        
         that.turnSpeed = 0;
         that.extraTurnSpeed = 0;
         that.pushTurnSpeed = 0;
@@ -349,10 +453,10 @@ window.addEventListener("load", function () {
         that.pushForce = 50;
         that.pushSpeedDec = 0.1;
         that.rotationSpeeds = [10, 25, 50];
-        that.inputAccMultiplier = 27 / 90;
+        that.inputAccMultiplier = that.turnMaxSpeed / 90;
         that.inDrift = false;
         that.driftExtraSpeed = 10;
-        that.driftExtraRotation = 30;
+        that.driftExtraRotation = 60;
         that.targetTurnSpeed = 0;       // when controlled by player, value, that turnSpeed aspires to become
         that.turnAcc = 1;               // when controlled by player, speed at which turnSpeed changes
         that.rotationBase = 0;          // Dependant on input
@@ -364,6 +468,30 @@ window.addEventListener("load", function () {
         that.targetXChangeSpeed = 1;    //
         that.targetXSize = 10;          // acceptance radius used by AI
         that.preferedTargetX = options.preferedTargetX;
+        
+        that.reInit = function(params){
+            
+            that.sprite = params.sprite;
+            that.x = params.x;
+            that.distance = params.distance;
+            that.maxSpeed = params.maxSpeed;
+            that.accel = params.accel;
+            that.driftSpeedAtt = params.driftSpeedAtt;
+            that.turnAccel = params.turnAccel;
+            that.turnMaxSpeed = params.turnMaxSpeed;
+            that.speed = params.speed;
+            that.controllerId = params.controllerId;
+            that.name = params.name;
+            
+            that.inputAccMultiplier = that.turnMaxSpeed / 90;
+            that.halfRotationPerSprite = that.rotationPerSprite / 2;
+            that.rotationAdditional = 0;
+            
+            that.targetX = 0;               // used to control cars with AI
+            that.targetXChangeSpeed = 1;    //
+            that.targetXSize = 10;          // acceptance radius used by AI
+            that.preferedTargetX = params.preferedTargetX;
+        }
         
         that.rotate = function (value) {
 
@@ -775,8 +903,7 @@ window.addEventListener("load", function () {
         return that;
     }
     
-    var cars = [];
-    cars.push(
+    carBluprints.push(
     car({
         sprite: sonicSprite,
         x: 0,
@@ -786,15 +913,42 @@ window.addEventListener("load", function () {
         accel: 0.001,
         driftSpeedAtt: 0.002,
         turnAccel: 5,
-        turnMaxSpeed: 5,
+        turnMaxSpeed: 27,
         speed: 0.1,
         controllerId: 0,
         carHalfWidth: 30,
-        name: "Sonic"
+        name: "Sonic",
+        infoSpeed: 5,
+        infoAcc: 3,
+        infoHandling: 2, 
+        infoDrift: 3
     })
     );
     
-    cars.push(
+    carBluprints.push(
+    car({
+        sprite: shadowSprite,
+        x: -20,
+        distance: 11,
+        maxSpeed: 0.68,
+        minSpeed: 0.1,
+        accel: 0.001,
+        driftSpeedAtt: 0.0017,
+        turnAccel: 5,
+        turnMaxSpeed: 28,
+        speed: 0.1,
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: -20,
+        name: "Shadow",
+        infoSpeed: 4,
+        infoAcc: 3,
+        infoHandling: 3, 
+        infoDrift: 3
+    })
+    );
+    
+    carBluprints.push(
     car({
         sprite: metalSonicSprite,
         x: 50,
@@ -804,34 +958,116 @@ window.addEventListener("load", function () {
         accel: 0.001,
         driftSpeedAtt: 0.002,
         turnAccel: 5,
-        turnMaxSpeed: 5,
+        turnMaxSpeed: 27,
         speed: 0.1,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: 50,
-        name: "Metal Sonic"
+        name: "Metal Sonic",
+        infoSpeed: 5,
+        infoAcc: 3,
+        infoHandling: 2, 
+        infoDrift: 3
+    })
+    );
+    
+    carBluprints.push(
+    car({
+        sprite: metalKnucklesSprite,
+        x: 80,
+        distance: 12,
+        maxSpeed: 0.67,
+        minSpeed: 0.1,
+        accel: 0.001,
+        driftSpeedAtt: 0.002,
+        turnAccel: 7,
+        turnMaxSpeed: 33,
+        speed: 0.1,
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: 30,
+        name: "Metal Knux",
+        infoSpeed: 3,
+        infoAcc: 3,
+        infoHandling: 4, 
+        infoDrift: 3
     })
     );
     
     
-    cars.push(
+    carBluprints.push(
     car({
         sprite: silverSprite,
         x: -50,
         distance: 12,
-        maxSpeed: 0.66,
+        maxSpeed: 0.65,
         minSpeed: 0.1,
         accel: 0.001,
         driftSpeedAtt: 0.002,
         turnAccel: 5,
-        turnMaxSpeed: 5,
+        turnMaxSpeed: 35,
         speed: 0.1,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: -50,
-        name: "Silver"
+        name: "Silver",
+        infoSpeed: 2,
+        infoAcc: 3,
+        infoHandling: 5, 
+        infoDrift: 3
     })
     );
+    
+    carBluprints.push(
+    car({
+        sprite: tailsSprite,
+        x: 0,
+        distance: 10,
+        maxSpeed: 0.67,
+        minSpeed: 0.1,
+        accel: 0.0015,
+        driftSpeedAtt: 0.002,
+        turnAccel: 5,
+        turnMaxSpeed: 35,
+        speed: 0.1,
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: -50,
+        name: "Tails",
+        infoSpeed: 3,
+        infoAcc: 5,
+        infoHandling: 4, 
+        infoDrift: 3
+    })
+    );
+    
+    
+    // Init cars array with any random values:
+    for (var i = 0; i < menuCars.length; i++)
+    {
+        cars[i] = car({
+            sprite: silverSprite,
+            x: -50,
+            distance: 12,
+            maxSpeed: 0.66,
+            minSpeed: 0.1,
+            accel: 0.0013,
+            driftSpeedAtt: 0.002,
+            turnAccel: 5,
+            turnMaxSpeed: 35,
+            speed: 0.1,
+            controllerId: -1,
+            carHalfWidth: 30,
+            preferedTargetX: 10,
+            name: "Silver",
+            infoSpeed: 2,
+            infoAcc: 3,
+            infoHandling: 5, 
+            infoDrift: 3
+        });
+        //cloneParams(cars[i], carBluprints[i]);
+    }
+    
     
     var road1 = road({
         roadPieceDistance: 5
@@ -1081,51 +1317,174 @@ window.addEventListener("load", function () {
     
     
     // Interesting code section:
+    
+    function onMenuUp(){
+        menuCursorY--;
+        if (menuCursorY < menuCursorYMin)
+            menuCursorY = menuCursorYMax;
+    }
 
+    function onMenuDown(){
+        menuCursorY++;
+        if (menuCursorY > menuCursorYMax)
+            menuCursorY = menuCursorYMin;
+    }
+
+    function onMenuLeft(){
+        if (menuCursorY >= 1)
+        {
+            menuCursorX--;
+            if (menuCursorX < menuCursorXMin)
+                menuCursorX = menuCursorXMax;
+        }
+    }
+
+    function onMenuRight(){
+        if (menuCursorY >= 1)
+        {
+            menuCursorX++;
+            if (menuCursorX > menuCursorXMax)
+                menuCursorX = menuCursorXMin;
+        }
+    }
+
+    function onMenuAccept(){
+        
+        switch (menuCursorY)
+        {
+        // If cursor is on start field:
+        case 0:
+            inMenu = false;
+            for (var i = 0; i < menuCars.length; i++)
+            {
+                carBluprints[menuCars[i]].rotationAdditional = 0;
+                //cloneParams(cars, i, carBluprints[menuCars[i]]);
+                cars[i].reInit(carBluprints[menuCars[i]]);
+                cars[i].controllerId = menuControllers[i];
+            }
+            break;
+            
+        // If cursor is on control type field:
+        case 1:
+            menuControllers[menuCursorX]++;
+            if (menuControllers[menuCursorX] > 3)
+                menuControllers[menuCursorX] = -1;
+            break;
+            
+        // If cursor is on car bluprint field:
+        case 2:
+            menuCars[menuCursorX]++;
+            if (menuCars[menuCursorX] >= carBluprints.length)
+                menuCars[menuCursorX] = 0;
+            break; 
+        }
+    }
+
+    function onGameStart(){
+        
+    }
+
+    function onGameEnd(){
+        
+    }
+    
+    // Since it's JavaScript, the draw method also serves as update method:
     function draw() {
         //console.log("General draw function called!");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Sort cars, so that they are listed from 1st place to last:
-        for (var i = 0; i < cars.length; i++)
+        // If in menu, draw it and allow navigation:
+        if (inMenu == true)
         {
-            for (var j = 0; j < cars.length - i - 1; j++)
+            // Update cars on display, so they rotate slowly:
+            for (var i = 0; i < carBluprints.length; i++)
             {
-                if (cars[j].distance < cars[j + 1].distance)
-                {
-                    var tempCar = cars[j];
-                    cars[j] = cars[j + 1];
-                    cars[j + 1] = tempCar;
-                }
+                carBluprints[i].rotationAdditional += 1;
+            }
+            
+            // Draw everything in menu:
+            ctx.fillStyle = "black";
+            ctx.font = "20px Arial";
+            
+            ctx.fillText("Start", ctx.canvas.width * 0.5, 20);
+            if (menuCursorY == 0)
+                ctx.fillText(">           <", ctx.canvas.width * 0.5 - 20, 20);
+                
+            for (var i = 0; i <= menuCursorXMax; i++)
+            {
+                ctx.font = "20px Arial";
+                ctx.fillText(controllerNames[menuControllers[i]], 20 + i * 130, 50);
+                if (menuCursorY == 1 && menuCursorX == i)
+                    ctx.fillText(">", 20 + i * 130 - 20, 50);
+                
+                ctx.fillText(carBluprints[menuCars[i]].name, 20 + i * 130, 80);
+                if (menuCursorY == 2 && menuCursorX == i)
+                    ctx.fillText(">", 20 + i * 130 - 20, 80);
+                
+                carBluprints[menuCars[i]].render(20 + i * 130 + 40, 130, 1);
+                
+                ctx.font = "15px Arial";
+                ctx.fillText("Speed:    ", 20 + i * 130, 160);
+                ctx.fillText("Acc:      ", 20 + i * 130, 190);
+                ctx.fillText("Handling: ", 20 + i * 130, 220);
+                ctx.fillText("Drift:    ", 20 + i * 130, 250);
+                
+                for (var j = 0; j < carBluprints[menuCars[i]].infoSpeed; j++)
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 160 - 10, 3, 10);
+                    
+                for (var j = 0; j < carBluprints[menuCars[i]].infoAcc; j++)
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 190 - 10, 3, 10);
+                    
+                for (var j = 0; j < carBluprints[menuCars[i]].infoHandling; j++)
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 220 - 10, 3, 10);
+                    
+                for (var j = 0; j < carBluprints[menuCars[i]].infoDrift; j++)
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 250 - 10, 3, 10);
             }
         }
-        
-        // Update game logic:
-        for (var i = 0; i < cars.length; i++) {
-             
-             cars[i].update();
-        }
-        
-        // Update camera's logic and then draw their views:
-        for (var i = 0; i < 2; i++)
+        // If in game, calculate game logic and draw all cameras:
+        else
         {
-            cameras[i].update();
-            cameras[i].render();
+            // Sort cars, so that they are listed from 1st place to last:
+            for (var i = 0; i < cars.length; i++)
+            {
+                for (var j = 0; j < cars.length - i - 1; j++)
+                {
+                    if (cars[j].distance < cars[j + 1].distance)
+                    {
+                        var tempCar = cars[j];
+                        cars[j] = cars[j + 1];
+                        cars[j + 1] = tempCar;
+                    }
+                }
+            }
+            
+            // Update game logic:
+            for (var i = 0; i < cars.length; i++) {
+                
+                cars[i].update();
+            }
+            
+            // Update camera's logic and then draw their views:
+            for (var i = 0; i < 2; i++)
+            {
+                cameras[i].update();
+                cameras[i].render();
+            }
+            
+            var textY = 15;
+            
+            // Finally, draw HUD:
+            ctx.fillStyle = "black";
+            ctx.font = "20px Arial";
+            for (var i = 0; i < cars.length; i++)
+            {
+                ctx.fillText(placeNames[i] + cars[i].name, 5, textY);
+                textY += 30;
+            }
+            //ctx.fillTex("Pootis", 10, 10);
+            
         }
-        
-        var textY = 15;
-        
-        // Finally, draw HUD:
-        ctx.fillStyle = "black";
-        ctx.font = "20px Arial";
-        for (var i = 0; i < cars.length; i++)
-        {
-            ctx.fillText(placeNames[i] + cars[i].name, 5, textY);
-            textY += 30;
-        }
-        //ctx.fillTex("Pootis", 10, 10);
-        
-        
         /*
         ctx.fillStyle = "rgba(200, 0, 0, 0.5)";
         ctx.fillRect(x, y, x + 55, y + 50);
