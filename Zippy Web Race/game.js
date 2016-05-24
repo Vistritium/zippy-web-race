@@ -8,6 +8,8 @@ var keyLeftPressed = false;
 // 2 - WiiMote
 // 3 - nunchak
 var inputInfos = [];
+var INPUT_WIIMOTE_ID = 2;
+var INPUT_NUNCHUK_ID = 3;
 
 for (i = 0; i < 4; i++) {
     inputInfos[i] = {
@@ -15,6 +17,57 @@ for (i = 0; i < 4; i++) {
         "acc": 0
     };
 }
+
+var websocket = new WebSocket("ws://localhost:8184", "echo-protocol");
+
+websocket.onopen = function(event) {
+	console.log("opened websocket");
+	websocket.send('initiated'); // important to send this
+};
+/*
+ * Dummy implementation that lets you control the car with wiimote cross button (left, right, up, down)
+ */
+websocket.onmessage = function(event) {
+	var input = JSON.parse(event.data.slice(0, -1));
+	
+    //console.log(input.Orient.Pitch + " " + input.Orient.Roll);
+    //console.log(input.Extnsn.Nunchuk.Orient.Pitch + " " + input.Extnsn.Nunchuk.Orient.Roll);
+    
+    if (input != undefined)
+    {
+        inputInfos[INPUT_WIIMOTE_ID].acc = input.Orient.Pitch * -2;
+        
+        if (input.Buttons.indexOf('Down') !== -1) {
+            inputInfos[INPUT_WIIMOTE_ID].A = true;
+        } else {
+            inputInfos[INPUT_WIIMOTE_ID].A = false;
+        }
+    }
+    
+    if (input.Extnsn.Nunchuk != undefined)
+    {
+        inputInfos[INPUT_NUNCHUK_ID].acc = input.Extnsn.Nunchuk.Orient.Roll * 1.5;
+        
+        if (input.Extnsn.Nunchuk.Buttons.indexOf('Z') !== -1) {
+            inputInfos[INPUT_NUNCHUK_ID].A = true;
+        } else {
+            inputInfos[INPUT_NUNCHUK_ID].A = false;
+        }
+    }
+    
+    /*
+	if (input.Buttons.indexOf('Left') !== -1) {
+		inputInfos[INPUT_WIIMOTE_ID].acc = -90;
+	} else if (input.Buttons.indexOf('Right') !== -1) {
+		inputInfos[INPUT_WIIMOTE_ID].acc = 90;
+	} else {
+		inputInfos[INPUT_WIIMOTE_ID].acc = 0;
+	}*/
+	
+	
+    
+    
+};
 
 
 
@@ -184,11 +237,23 @@ listenFunction = window.addEventListener("load", function () {
     var metalKnucklesImage = new Image();
     metalKnucklesImage.src = "carImages/metalKnuckles.png";
     
+    var knucklesImage = new Image();
+    knucklesImage.src = "carImages/knuckles.png";
+    
     var silverImage = new Image();
     silverImage.src = "carImages/silver.png";
     
+    var eggmanImage = new Image();
+    eggmanImage.src = "carImages/eggman.png";
+    
     var shadowImage = new Image();
     shadowImage.src = "carImages/shadow.png";
+    
+    var blazeImage = new Image();
+    blazeImage.src = "carImages/blaze.png";
+    
+    var rougeImage = new Image();
+    rougeImage.src = "carImages/rouge.png";
     
     var tailsImage = new Image();
     tailsImage.src = "carImages/tails.png";
@@ -326,6 +391,20 @@ listenFunction = window.addEventListener("load", function () {
         loop: true
     });
     
+    var knucklesSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: knucklesImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
     var metalKnucklesSprite = sprite({
         context: canvas.getContext('2d'),
         width: 36,
@@ -345,6 +424,48 @@ listenFunction = window.addEventListener("load", function () {
         width: 36,
         height: 32,
         image: silverImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
+    var blazeSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 36,
+        image: blazeImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.95,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
+    var rougeSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: rougeImage,
+        imageStartX: 0,
+        imageStartY: 0,
+        pivotx: 0.5,
+        pivoty: 0.9,
+        ticksPerFrame: 30,
+        numberOfFrames: 7,
+        loop: true
+    });
+    
+    var eggmanSprite = sprite({
+        context: canvas.getContext('2d'),
+        width: 36,
+        height: 32,
+        image: eggmanImage,
         imageStartX: 0,
         imageStartY: 0,
         pivotx: 0.5,
@@ -432,12 +553,15 @@ listenFunction = window.addEventListener("load", function () {
         that.minSpeed = options.minSpeed;
         that.accel = options.accel;
         that.driftSpeedAtt = options.driftSpeedAtt;
+        that.driftExtraSpeed = options.driftExtraSpeed;
         that.turnAccel = options.turnAccel;
         that.turnMaxSpeed = options.turnMaxSpeed;
         that.speed = options.speed;
         that.controllerId = options.controllerId;
         that.carHalfWidth = options.carHalfWidth;
         that.name = options.name;
+        that.pushForce = options.pushForce;
+        that.pushSpeedDec = options.pushSpeedDec;
         
         // Values, that will be displayed in menu to inform player about driver's stats:
         that.infoSpeed = options.infoSpeed;
@@ -450,15 +574,11 @@ listenFunction = window.addEventListener("load", function () {
         that.extraTurnSpeed = 0;
         that.pushTurnSpeed = 0;
         that.pushTurnAtt = 2;
-        that.pushForce = 50;
-        that.pushSpeedDec = 0.1;
         that.rotationSpeeds = [10, 25, 50];
         that.inputAccMultiplier = that.turnMaxSpeed / 90;
         that.inDrift = false;
-        that.driftExtraSpeed = 10;
         that.driftExtraRotation = 60;
         that.targetTurnSpeed = 0;       // when controlled by player, value, that turnSpeed aspires to become
-        that.turnAcc = 1;               // when controlled by player, speed at which turnSpeed changes
         that.rotationBase = 0;          // Dependant on input
         that.rotationAdditional = 0;    // Dependant on other things, like drift or rotating due to oil on road
         that.rotationPerSprite = 30;    // Degrees per sprite index
@@ -477,11 +597,14 @@ listenFunction = window.addEventListener("load", function () {
             that.maxSpeed = params.maxSpeed;
             that.accel = params.accel;
             that.driftSpeedAtt = params.driftSpeedAtt;
+            that.driftExtraSpeed = params.driftExtraSpeed;
             that.turnAccel = params.turnAccel;
             that.turnMaxSpeed = params.turnMaxSpeed;
             that.speed = params.speed;
             that.controllerId = params.controllerId;
             that.name = params.name;
+            that.pushForce = params.pushForce;
+            that.pushSpeedDec = params.pushSpeedDec;
             
             that.inputAccMultiplier = that.turnMaxSpeed / 90;
             that.halfRotationPerSprite = that.rotationPerSprite / 2;
@@ -579,13 +702,19 @@ listenFunction = window.addEventListener("load", function () {
                     that.inDrift = false;
             }
             
+            // Keep turn speed in range:
+            if (that.targetTurnSpeed > 90 * that.inputAccMultiplier)
+                that.targetTurnSpeed = 90 * that.inputAccMultiplier;
+            else if (that.targetTurnSpeed < -90 * that.inputAccMultiplier)
+                that.targetTurnSpeed = -90 * that.inputAccMultiplier;
+            
             // Gradually change your actual rotation to it:
-            if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAcc)
+            if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAccel)
                 that.turnSpeed = that.targetTurnSpeed;
             else if (that.targetTurnSpeed > that.turnSpeed)
-                that.turnSpeed += that.turnAcc;
+                that.turnSpeed += that.turnAccel;
             else
-                that.turnSpeed -= that.turnAcc;
+                that.turnSpeed -= that.turnAccel;
             
             if (that.inDrift == true)
             {
@@ -695,6 +824,20 @@ listenFunction = window.addEventListener("load", function () {
             
             var pieceNr = 0;
             var i = 0;
+            
+            for (pieceNr = 0; pieceNr < 20; pieceNr++)
+            {
+                that.roadPieces[pieceNr] = 
+                    roadPiece({
+                        direction: 0,
+                        roadWidth: 500,
+                        roadColor: 1,
+                        grassColor: 2,
+                        things: [],
+                        preferedXMatters: false,
+                        preferedX: 0
+                    });
+            }
             
             // Keep generating until you reach at least set number of road pieces:
             while (pieceNr < 400)
@@ -910,18 +1053,23 @@ listenFunction = window.addEventListener("load", function () {
         distance: 11,
         maxSpeed: 0.7,
         minSpeed: 0.1,
-        accel: 0.001,
-        driftSpeedAtt: 0.002,
-        turnAccel: 5,
+        accel: 0.0013,
+        driftSpeedAtt: 0.003,
+        driftExtraSpeed: 10,
+        turnAccel: 1,
         turnMaxSpeed: 27,
         speed: 0.1,
+        pushForce: 50,
+        pushSpeedDec: 0.2,
         controllerId: 0,
         carHalfWidth: 30,
+        preferedTargetX: 0,
         name: "Sonic",
         infoSpeed: 5,
         infoAcc: 3,
-        infoHandling: 2, 
-        infoDrift: 3
+        infoHandling: 3, 
+        infoDrift: 3,
+        infoWeight: 3
     })
     );
     
@@ -932,11 +1080,14 @@ listenFunction = window.addEventListener("load", function () {
         distance: 11,
         maxSpeed: 0.68,
         minSpeed: 0.1,
-        accel: 0.001,
-        driftSpeedAtt: 0.0017,
-        turnAccel: 5,
+        accel: 0.0013,
+        driftSpeedAtt: 0.003,
+        driftExtraSpeed: 10,
+        turnAccel: 1,
         turnMaxSpeed: 28,
         speed: 0.1,
+        pushForce: 50,
+        pushSpeedDec: 0.2,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: -20,
@@ -944,7 +1095,8 @@ listenFunction = window.addEventListener("load", function () {
         infoSpeed: 4,
         infoAcc: 3,
         infoHandling: 3, 
-        infoDrift: 3
+        infoDrift: 3,
+        infoWeight: 3
     })
     );
     
@@ -953,21 +1105,52 @@ listenFunction = window.addEventListener("load", function () {
         sprite: metalSonicSprite,
         x: 50,
         distance: 10,
-        maxSpeed: 0.69,
+        maxSpeed: 0.72,
         minSpeed: 0.1,
-        accel: 0.001,
-        driftSpeedAtt: 0.002,
-        turnAccel: 5,
-        turnMaxSpeed: 27,
+        accel: 0.0011,
+        driftSpeedAtt: 0.0033,
+        driftExtraSpeed: 10,
+        turnAccel: 1,
+        turnMaxSpeed: 25,
         speed: 0.1,
+        pushForce: 40,
+        pushSpeedDec: 0.15,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: 50,
         name: "Metal Sonic",
-        infoSpeed: 5,
-        infoAcc: 3,
+        infoSpeed: 6,
+        infoAcc: 2,
         infoHandling: 2, 
-        infoDrift: 3
+        infoDrift: 3,
+        infoWeight: 4
+    })
+    );
+    
+    carBluprints.push(
+    car({
+        sprite: knucklesSprite,
+        x: -100,
+        distance: 12,
+        maxSpeed: 0.68,
+        minSpeed: 0.1,
+        accel: 0.0013,
+        driftSpeedAtt: 0.003,
+        driftExtraSpeed: 10,
+        turnAccel: 1,
+        turnMaxSpeed: 27,
+        speed: 0.1,
+        pushForce: 30,
+        pushSpeedDec: 0.1,
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: 50,
+        name: "Knuckles",
+        infoSpeed: 4,
+        infoAcc: 3,
+        infoHandling: 4, 
+        infoDrift: 3,
+        infoWeight: 5
     })
     );
     
@@ -976,21 +1159,25 @@ listenFunction = window.addEventListener("load", function () {
         sprite: metalKnucklesSprite,
         x: 80,
         distance: 12,
-        maxSpeed: 0.67,
+        maxSpeed: 0.68,
         minSpeed: 0.1,
-        accel: 0.001,
+        accel: 0.0013,
         driftSpeedAtt: 0.002,
-        turnAccel: 7,
+        driftExtraSpeed: 13,
+        turnAccel: 0.7,
         turnMaxSpeed: 33,
         speed: 0.1,
+        pushForce: 30,
+        pushSpeedDec: 0.1,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: 30,
         name: "Metal Knux",
-        infoSpeed: 3,
+        infoSpeed: 4,
         infoAcc: 3,
-        infoHandling: 4, 
-        infoDrift: 3
+        infoHandling: 1, 
+        infoDrift: 5,
+        infoWeight: 5
     })
     );
     
@@ -1002,19 +1189,104 @@ listenFunction = window.addEventListener("load", function () {
         distance: 12,
         maxSpeed: 0.65,
         minSpeed: 0.1,
-        accel: 0.001,
-        driftSpeedAtt: 0.002,
-        turnAccel: 5,
+        accel: 0.0017,
+        driftSpeedAtt: 0.0025,
+        driftExtraSpeed: 12,
+        turnAccel: 1,
         turnMaxSpeed: 35,
         speed: 0.1,
+        pushForce: 50,
+        pushSpeedDec: 0.2,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: -50,
         name: "Silver",
         infoSpeed: 2,
-        infoAcc: 3,
+        infoAcc: 5,
         infoHandling: 5, 
-        infoDrift: 3
+        infoDrift: 4,
+        infoWeight: 3
+    })
+    );
+    
+    carBluprints.push(
+    car({
+        sprite: blazeSprite,
+        x: 0,
+        distance: 11,
+        maxSpeed: 0.7,
+        minSpeed: 0.1,
+        accel: 0.0013,
+        driftSpeedAtt: 0.0035,
+        driftExtraSpeed: 8,
+        turnAccel: 1,
+        turnMaxSpeed: 27,
+        speed: 0.1,
+        pushForce: 60,
+        pushSpeedDec: 0.25,
+        controllerId: 0,
+        carHalfWidth: 30,
+        preferedTargetX: -20,
+        name: "Blaze",
+        infoSpeed: 5,
+        infoAcc: 3,
+        infoHandling: 3, 
+        infoDrift: 2,
+        infoWeight: 2
+    })
+    );
+    
+    carBluprints.push(
+    car({
+        sprite: rougeSprite,
+        x: 0,
+        distance: 11,
+        maxSpeed: 0.68,
+        minSpeed: 0.1,
+        accel: 0.0013,
+        driftSpeedAtt: 0.0025,
+        driftExtraSpeed: 15,
+        turnAccel: 1,
+        turnMaxSpeed: 27,
+        speed: 0.1,
+        pushForce: 60,
+        pushSpeedDec: 0.25,
+        controllerId: 0,
+        carHalfWidth: 30,
+        preferedTargetX: -20,
+        name: "Rouge",
+        infoSpeed: 4,
+        infoAcc: 3,
+        infoHandling: 3, 
+        infoDrift: 4,
+        infoWeight: 2
+    })
+    );
+    
+    carBluprints.push(
+    car({
+        sprite: eggmanSprite,
+        x: -80,
+        distance: 12,
+        maxSpeed: 0.7,
+        minSpeed: 0.1,
+        accel: 0.0011,
+        driftSpeedAtt: 0.002,
+        driftExtraSpeed: 13,
+        turnAccel: 0.7,
+        turnMaxSpeed: 33,
+        speed: 0.1,
+        pushForce: 30,
+        pushSpeedDec: 0.1,
+        controllerId: -1,
+        carHalfWidth: 30,
+        preferedTargetX: -10,
+        name: "Eggman",
+        infoSpeed: 5,
+        infoAcc: 2,
+        infoHandling: 1, 
+        infoDrift: 5,
+        infoWeight: 4
     })
     );
     
@@ -1027,17 +1299,21 @@ listenFunction = window.addEventListener("load", function () {
         minSpeed: 0.1,
         accel: 0.0015,
         driftSpeedAtt: 0.002,
-        turnAccel: 5,
+        driftExtraSpeed: 10,
+        turnAccel: 1,
         turnMaxSpeed: 35,
         speed: 0.1,
+        pushForce: 50,
+        pushSpeedDec: 0.2,
         controllerId: -1,
         carHalfWidth: 30,
         preferedTargetX: -50,
         name: "Tails",
         infoSpeed: 3,
-        infoAcc: 5,
+        infoAcc: 4,
         infoHandling: 4, 
-        infoDrift: 3
+        infoDrift: 3,
+        infoWeight: 3
     })
     );
     
@@ -1053,9 +1329,12 @@ listenFunction = window.addEventListener("load", function () {
             minSpeed: 0.1,
             accel: 0.0013,
             driftSpeedAtt: 0.002,
-            turnAccel: 5,
+            driftExtraSpeed: 10,
+            turnAccel: 1,
             turnMaxSpeed: 35,
             speed: 0.1,
+            pushForce: 50,
+            pushSpeedDec: 0.3,
             controllerId: -1,
             carHalfWidth: 30,
             preferedTargetX: 10,
@@ -1063,7 +1342,8 @@ listenFunction = window.addEventListener("load", function () {
             infoSpeed: 2,
             infoAcc: 3,
             infoHandling: 5, 
-            infoDrift: 3
+            infoDrift: 3,
+            infoWeight: 3
         });
         //cloneParams(cars[i], carBluprints[i]);
     }
@@ -1428,6 +1708,7 @@ listenFunction = window.addEventListener("load", function () {
                 ctx.fillText("Acc:      ", 20 + i * 130, 190);
                 ctx.fillText("Handling: ", 20 + i * 130, 220);
                 ctx.fillText("Drift:    ", 20 + i * 130, 250);
+                ctx.fillText("Weight:   ", 20 + i * 130, 280);
                 
                 for (var j = 0; j < carBluprints[menuCars[i]].infoSpeed; j++)
                     ctx.fillRect(20 + i * 130 + 70 + j * 4, 160 - 10, 3, 10);
@@ -1440,6 +1721,9 @@ listenFunction = window.addEventListener("load", function () {
                     
                 for (var j = 0; j < carBluprints[menuCars[i]].infoDrift; j++)
                     ctx.fillRect(20 + i * 130 + 70 + j * 4, 250 - 10, 3, 10);
+                    
+                for (var j = 0; j < carBluprints[menuCars[i]].infoWeight; j++)
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 280 - 10, 3, 10);
             }
         }
         // If in game, calculate game logic and draw all cameras:
