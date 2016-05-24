@@ -71,8 +71,6 @@ websocket.onmessage = function(event) {
 
 
 
-var listenFunction;
-
 function cloneParams(toArr, index, fromObj) {
     
     toArr[index] = Object.assign({}, fromObj);
@@ -90,7 +88,7 @@ function cloneParams(toArr, index, fromObj) {
 
 
 // Start the game loop as soon as the sprite sheet is loaded
-listenFunction = window.addEventListener("load", function () {
+window.addEventListener("load", function () {
     console.log("hello, world!");
     
     
@@ -104,18 +102,22 @@ listenFunction = window.addEventListener("load", function () {
             switch (event.keyCode)
             {
                 case 39:                        // Right arrow
+                case 68:                        // D
                     onMenuRight();
                     break;
                     
                 case 37:                        // Left arrow
+                case 65:                        // A
                     onMenuLeft();
                     break;
                     
                 case 40:                        // Down arrow
+                case 83:                        // S
                     onMenuDown();
                     break;
                     
                 case 38:                        // Up arrow
+                case 87:                        // W
                     onMenuUp();
                     break;
                     
@@ -128,6 +130,13 @@ listenFunction = window.addEventListener("load", function () {
         {
             switch (event.keyCode)
             {
+                case 27:                        // Esc
+                case 82:                        // R
+                    onEsc();
+                    break;
+                    
+                    
+                
                 case 65:                        // A
                     inputInfos[0].acc = -90;
                     break;
@@ -211,8 +220,10 @@ listenFunction = window.addEventListener("load", function () {
     var menuCursorY = 0;
     var menuCursorXMax = 4;
     var menuCursorXMin = 0;
-    var menuCursorYMax = 2;
+    var menuCursorYMax = 3;
     var menuCursorYMin = 0;
+    var menuCamerasMax = 3;
+    var menuCameras = 1;
     var inMenu = true;
 
     // Array of cars taking part in race:
@@ -817,7 +828,7 @@ listenFunction = window.addEventListener("load", function () {
                         
         that.roadPieceDistance = options.roadPieceDistance;
         that.roadPieces = [];
-        that.roadCarLength = 0;         // Distance in in-game units (NOT number of negments) that can be traveled by cars
+        that.roadCarLength = 0;         // Distance in in-game units (NOT number of segments) that can be traveled by cars
         that.roadCameraLength = 0;
         
         that.init = function () {
@@ -911,9 +922,9 @@ listenFunction = window.addEventListener("load", function () {
                 case 3:     // Place random stuff on road:
                     // Randomize a safe passage and save it in road pieces:
                     var rightX = Math.random() * 400 - 200;
-                    var safeHalfWidth = 100;
+                    var safeHalfWidth = 70;
                 
-                    for (i = 0; i < 20; i++)
+                    for (i = 0; i < 15; i++)
                     {
                         that.roadPieces[pieceNr + i] = 
                             roadPiece({
@@ -981,7 +992,7 @@ listenFunction = window.addEventListener("load", function () {
                         distance: 0
                     });
                     if (i % 4 == 0)
-                        that.roadPieces[i].things[0].x *= -1;
+                        that.roadPieces[i].things[that.roadPieces[i].things.length - 1].x *= -1;
                 }
             }
             
@@ -1580,6 +1591,18 @@ listenFunction = window.addEventListener("load", function () {
         startY: canvas.height / 2
     });
     
+    cameras[2] = 
+    camera({
+        distance: 10,
+        roadPiecesVisible: 15,
+        roadPiecesMultiplier: 0.7,
+        roadWidthMultiplier: 0.8,
+        roadPieceDistanceBase: 50,
+        targetObj: cars[2],
+        distanceToObj: 10,
+        startY: canvas.height / 2
+    });
+    
     var car1 = car({
         sprite: sonicSprite,
         distance: 0,
@@ -1611,7 +1634,7 @@ listenFunction = window.addEventListener("load", function () {
     }
 
     function onMenuLeft(){
-        if (menuCursorY >= 1)
+        if (menuCursorY >= 2)
         {
             menuCursorX--;
             if (menuCursorX < menuCursorXMin)
@@ -1620,7 +1643,7 @@ listenFunction = window.addEventListener("load", function () {
     }
 
     function onMenuRight(){
-        if (menuCursorY >= 1)
+        if (menuCursorY >= 2)
         {
             menuCursorX++;
             if (menuCursorX > menuCursorXMax)
@@ -1635,37 +1658,75 @@ listenFunction = window.addEventListener("load", function () {
         // If cursor is on start field:
         case 0:
             inMenu = false;
-            for (var i = 0; i < menuCars.length; i++)
-            {
-                carBluprints[menuCars[i]].rotationAdditional = 0;
-                //cloneParams(cars, i, carBluprints[menuCars[i]]);
-                cars[i].reInit(carBluprints[menuCars[i]]);
-                cars[i].controllerId = menuControllers[i];
-            }
+            onGameStart();
+            break;
+            
+        case 1:
+            menuCameras++;
+            if (menuCameras > menuCamerasMax)
+                menuCameras = 1;
             break;
             
         // If cursor is on control type field:
-        case 1:
+        case 2:
             menuControllers[menuCursorX]++;
             if (menuControllers[menuCursorX] > 3)
                 menuControllers[menuCursorX] = -1;
             break;
             
         // If cursor is on car bluprint field:
-        case 2:
+        case 3:
             menuCars[menuCursorX]++;
             if (menuCars[menuCursorX] >= carBluprints.length)
                 menuCars[menuCursorX] = 0;
             break; 
         }
     }
+    
+    function onEsc(){
+        
+        inMenu = true;
+        onGameEnd();
+    }
 
     function onGameStart(){
         
+        // Init cars taking part in race:
+        for (var i = 0; i < menuCars.length; i++)
+        {
+            // Reset rotation of cars on display in menu:
+            carBluprints[menuCars[i]].rotationAdditional = 0;
+            //cloneParams(cars, i, carBluprints[menuCars[i]]);
+            
+            // Copy important parameters:
+            cars[i].reInit(carBluprints[menuCars[i]]);
+            // Set other thing, that are supposed to be different:
+            cars[i].controllerId = menuControllers[i];
+            cars[i].distance = 10 + i * 3;
+            cars[i].x = 100;
+            if (i % 2 == 0)
+                cars[i].x *= -1;
+                
+            if (i < menuCameras)
+                cameras[i].targetObj = cars[i];
+        }
+        
+        // Init cameras:
+        for (var i = 0; i < menuCameras; i++)
+        {
+            cameras[i].startY = canvas.height - i * canvas.height / menuCameras;
+        }
+        
+        // Reinit road:
+        road1.init();
     }
 
     function onGameEnd(){
         
+        for (var i = 0; i < carBluprints.length; i++)
+        {
+            carBluprints[i].rotationAdditional = 0;
+        }
     }
     
     // Since it's JavaScript, the draw method also serves as update method:
@@ -1686,44 +1747,72 @@ listenFunction = window.addEventListener("load", function () {
             ctx.fillStyle = "black";
             ctx.font = "20px Arial";
             
-            ctx.fillText("Start", ctx.canvas.width * 0.5, 20);
+            var currentY = 20;
+            var baseY = 0;
+            
+            ctx.fillText("Start", ctx.canvas.width * 0.5, currentY);
             if (menuCursorY == 0)
-                ctx.fillText(">           <", ctx.canvas.width * 0.5 - 20, 20);
+                ctx.fillText(">           <", ctx.canvas.width * 0.5 - 20, currentY);
                 
+            currentY += 30;
+                
+            ctx.fillText("Cameras: " + menuCameras, ctx.canvas.width * 0.5, currentY);
+            if (menuCursorY == 1)
+                ctx.fillText(">", ctx.canvas.width * 0.5 - 20, currentY);
+                
+            currentY += 30;
+            
+            baseY = currentY;
             for (var i = 0; i <= menuCursorXMax; i++)
             {
+                currentY = baseY;
+                
                 ctx.font = "20px Arial";
-                ctx.fillText(controllerNames[menuControllers[i]], 20 + i * 130, 50);
-                if (menuCursorY == 1 && menuCursorX == i)
-                    ctx.fillText(">", 20 + i * 130 - 20, 50);
-                
-                ctx.fillText(carBluprints[menuCars[i]].name, 20 + i * 130, 80);
+                ctx.fillText(controllerNames[menuControllers[i]], 20 + i * 130, currentY);
                 if (menuCursorY == 2 && menuCursorX == i)
-                    ctx.fillText(">", 20 + i * 130 - 20, 80);
+                    ctx.fillText(">", 20 + i * 130 - 20, currentY);
+                    
+                currentY += 30;
                 
-                carBluprints[menuCars[i]].render(20 + i * 130 + 40, 130, 1);
+                ctx.fillText(carBluprints[menuCars[i]].name, 20 + i * 130, currentY);
+                if (menuCursorY == 3 && menuCursorX == i)
+                    ctx.fillText(">", 20 + i * 130 - 20, currentY);
+                    
+                currentY += 40;
+                
+                carBluprints[menuCars[i]].render(20 + i * 130 + 40, currentY, 1);
+                
+                currentY += 30;
                 
                 ctx.font = "15px Arial";
-                ctx.fillText("Speed:    ", 20 + i * 130, 160);
-                ctx.fillText("Acc:      ", 20 + i * 130, 190);
-                ctx.fillText("Handling: ", 20 + i * 130, 220);
-                ctx.fillText("Drift:    ", 20 + i * 130, 250);
-                ctx.fillText("Weight:   ", 20 + i * 130, 280);
                 
+                ctx.fillText("Speed:    ", 20 + i * 130, currentY);
                 for (var j = 0; j < carBluprints[menuCars[i]].infoSpeed; j++)
-                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 160 - 10, 3, 10);
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, currentY - 10, 3, 10);
+                   
+                currentY += 30; 
                     
+                ctx.fillText("Acc:      ", 20 + i * 130, currentY);
                 for (var j = 0; j < carBluprints[menuCars[i]].infoAcc; j++)
-                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 190 - 10, 3, 10);
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, currentY - 10, 3, 10);
                     
+                currentY += 30;
+                
+                ctx.fillText("Handling: ", 20 + i * 130, currentY);
                 for (var j = 0; j < carBluprints[menuCars[i]].infoHandling; j++)
-                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 220 - 10, 3, 10);
-                    
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, currentY - 10, 3, 10);
+                
+                currentY += 30;
+                
+                ctx.fillText("Drift:    ", 20 + i * 130, currentY);
                 for (var j = 0; j < carBluprints[menuCars[i]].infoDrift; j++)
-                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 250 - 10, 3, 10);
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, currentY - 10, 3, 10);
                     
+                currentY += 30;
+                
+                ctx.fillText("Weight:   ", 20 + i * 130, currentY);
                 for (var j = 0; j < carBluprints[menuCars[i]].infoWeight; j++)
-                    ctx.fillRect(20 + i * 130 + 70 + j * 4, 280 - 10, 3, 10);
+                    ctx.fillRect(20 + i * 130 + 70 + j * 4, currentY - 10, 3, 10);
             }
         }
         // If in game, calculate game logic and draw all cameras:
@@ -1750,7 +1839,7 @@ listenFunction = window.addEventListener("load", function () {
             }
             
             // Update camera's logic and then draw their views:
-            for (var i = 0; i < 2; i++)
+            for (var i = 0; i < menuCameras; i++)
             {
                 cameras[i].update();
                 cameras[i].render();
@@ -1768,6 +1857,10 @@ listenFunction = window.addEventListener("load", function () {
             }
             //ctx.fillTex("Pootis", 10, 10);
             
+            if (cars[cars.length - 1].distance >= road1.roadCarLength)
+            {
+                onEsc();
+            }
         }
         /*
         ctx.fillStyle = "rgba(200, 0, 0, 0.5)";
