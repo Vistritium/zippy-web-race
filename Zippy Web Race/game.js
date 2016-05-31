@@ -241,6 +241,7 @@ window.addEventListener("load", function () {
     
     var carImage = new Image();
     carImage.src = "carImages/sonicRKart.png";
+    //carImage.src = "carImages/sonicBluStar.png";
     
     var metalSonicImage = new Image();
     metalSonicImage.src = "carImages/metalSonicDrift.png";
@@ -581,6 +582,9 @@ window.addEventListener("load", function () {
         that.infoDrift = options.infoDrift;
         that.infoWeight = options.infoWeight;
         
+        that.zeroSpeed = 0.15;
+        that.zeroExtraRotation = 30;
+        that.zeroExtraMultiplier = 2;
         that.turnSpeed = 0;
         that.extraTurnSpeed = 0;
         that.pushTurnSpeed = 0;
@@ -718,6 +722,12 @@ window.addEventListener("load", function () {
                 that.targetTurnSpeed = 90 * that.inputAccMultiplier;
             else if (that.targetTurnSpeed < -90 * that.inputAccMultiplier)
                 that.targetTurnSpeed = -90 * that.inputAccMultiplier;
+                
+            // If car is going so slow, it's practically standing still, make it turn faster:
+            if (that.speed <= that.minSpeed + that.zeroSpeed)
+            {
+                that.targetTurnSpeed *= that.zeroExtraMultiplier;
+            }
             
             // Gradually change your actual rotation to it:
             if (Math.abs(that.targetTurnSpeed - that.turnSpeed) <= that.turnAccel)
@@ -774,8 +784,16 @@ window.addEventListener("load", function () {
                 that.pushTurnSpeed += that.pushTurnAtt;
             
             // Update x according to turnSpeed and current road piece:
-            that.x += (that.turnSpeed + that.extraTurnSpeed + that.pushTurnSpeed
-                    - road1.roadPieces[currentSegment].direction) / road1.roadPieceDistance * that.speed;
+            if (that.speed > that.minSpeed + that.zeroSpeed)
+            {
+                that.x += (that.turnSpeed + that.extraTurnSpeed + that.pushTurnSpeed
+                        - road1.roadPieces[currentSegment].direction) / road1.roadPieceDistance * that.speed;
+            }
+            else
+            {
+                that.x += (that.turnSpeed + that.extraTurnSpeed + that.pushTurnSpeed
+                        - road1.roadPieces[currentSegment].direction) / road1.roadPieceDistance * that.speed * 2;
+            }
                 
             that.distance += that.speed;
             if (that.distance > road1.roadCarLength)
@@ -1749,6 +1767,9 @@ window.addEventListener("load", function () {
             
             var currentY = 20;
             var baseY = 0;
+            
+            ctx.fillText("Graphics made by NICKtendo DS", 50, ctx.canvas.height - 60);
+            ctx.fillText("taken from www.spriters-resource.com", 50, ctx.canvas.height - 30);
             
             ctx.fillText("Start", ctx.canvas.width * 0.5, currentY);
             if (menuCursorY == 0)
