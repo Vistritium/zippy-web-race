@@ -156,7 +156,7 @@ ipc.serve(
             function(socket){
                 ipc.server.emit(
                     socket,
-                    convertToBytes("Hello mofugga!", true)
+                    convertToBytes("Connection established", true)
                 );
             }
         );
@@ -169,7 +169,7 @@ ipc.serve(
 				sendToWebSocket(data);
                 ipc.server.emit(
                     socket,
-                    convertToBytes("Whoop dee doo!", true)
+                    convertToBytes("Data received", true)
                 );
             }
         );
